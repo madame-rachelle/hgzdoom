@@ -13,8 +13,6 @@
 0 "slot 0"
 [ invprev
 ] invnext
-mwheelleft invprev
-mwheelright invnext
 enter invuse
 - sizedown
 = sizeup
@@ -26,10 +24,8 @@ rightarrow +right
 leftarrow +left
 uparrow +forward
 downarrow +back
-, +moveleft
-. +moveright
 mouse1 +attack
-mouse2 +strafe
+mouse2 +altattack
 mouse3 +forward
 mouse4 +speed
 capslock "toggle cl_run"
@@ -47,7 +43,6 @@ f10 menu_quit
 tab togglemap
 pause pause
 sysrq screenshot
-t messagemode
 \ +showscores
 f12 spynext
 mwheeldown weapnext
@@ -101,3 +96,16 @@ mapbind kp- +am_zoomout
 mapbind kp+ +am_zoomin
 mapbind mwheelup "am_zoom 1.2"
 mapbind mwheeldown "am_zoom -1.2"
+
+// Hedon
+W +forward
+E +use
+R +reload
+A +moveleft
+S +back
+D +moveright
+F invuse
+Z invprev
+X invnext
+C crouch
+KP1 chase

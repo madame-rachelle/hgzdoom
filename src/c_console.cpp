@@ -132,14 +132,14 @@ EXTERN_CVAR (Bool, show_messages)
 static char *work = NULL;
 static int worklen = 0;
 
-CVAR(Float, con_notifytime, 3.f, CVAR_ARCHIVE)
+CVAR(Float, con_notifytime, 5.f, CVAR_ARCHIVE)
 CVAR(Bool, con_centernotify, false, CVAR_ARCHIVE)
-CUSTOM_CVAR(Int, con_scaletext, 0, CVAR_ARCHIVE)		// Scale notify text at high resolutions?
+CUSTOM_CVAR(Int, con_scaletext, 1, CVAR_ARCHIVE)		// Scale notify text at high resolutions?
 {
 	if (self < 0) self = 0;
 }
 
-CUSTOM_CVAR(Int, con_scale, 0, CVAR_ARCHIVE)
+CUSTOM_CVAR(Int, con_scale, 2, CVAR_ARCHIVE)
 {
 	if (self < 0) self = 0;
 }
@@ -546,12 +546,12 @@ FILE *Logfile = NULL;
 
 FIntCVar msglevel ("msg", 0, CVAR_ARCHIVE);
 
-CUSTOM_CVAR (Int, msg0color, 6, CVAR_ARCHIVE)
+CUSTOM_CVAR (Int, msg0color, 8, CVAR_ARCHIVE)
 {
 	setmsgcolor (0, self);
 }
 
-CUSTOM_CVAR (Int, msg1color, 5, CVAR_ARCHIVE)
+CUSTOM_CVAR (Int, msg1color, 6, CVAR_ARCHIVE)
 {
 	setmsgcolor (1, self);
 }
