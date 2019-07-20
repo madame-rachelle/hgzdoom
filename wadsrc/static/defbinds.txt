@@ -13,7 +13,6 @@
 0 "slot 0"
 [ invprev
 ] invnext
-enter invuse
 - sizedown
 = sizeup
 ctrl +attack
@@ -109,3 +108,6 @@ Z invprev
 X invnext
 C crouch
 KP1 chase
+space +jump
+ctrl +crouch
+Enter invquery

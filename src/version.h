@@ -91,7 +91,7 @@ const char *GetVersionString();
 #define SAVEVER 4556
 
 // This is so that derivates can use the same savegame versions without worrying about engine compatibility
-#define GAMESIG "hGZDOOM"
+#define GAMESIG "HGZDOOM"
 #define BASEWAD "hgzdoom.pk3"
 #define OPTIONALWAD "there_is_no_optional_wad_here.pk3"
 
