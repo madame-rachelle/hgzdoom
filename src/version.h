@@ -41,16 +41,16 @@ const char *GetVersionString();
 
 /** Lots of different version numbers **/
 
-#define VERSIONSTR "4.1.3"
+#define VERSIONSTR "1.4.0"
 
 // The version as seen in the Windows resource
-#define RC_FILEVERSION 4,1,3,0
-#define RC_PRODUCTVERSION 4,1,3,0
+#define RC_FILEVERSION 1,4,0,0
+#define RC_PRODUCTVERSION 1,4,0,0
 #define RC_PRODUCTVERSION2 VERSIONSTR
 // These are for content versioning.
-#define VER_MAJOR 4
-#define VER_MINOR 1
-#define VER_REVISION 3
+#define VER_MAJOR 1
+#define VER_MINOR 4
+#define VER_REVISION 0
 
 // This should always refer to the GZDoom version a derived port is based on and not reflect the derived port's version number!
 #define ENG_MAJOR 4
@@ -91,16 +91,16 @@ const char *GetVersionString();
 #define SAVEVER 4556
 
 // This is so that derivates can use the same savegame versions without worrying about engine compatibility
-#define GAMESIG "GZDOOM"
-#define BASEWAD "gzdoom.pk3"
-#define OPTIONALWAD "zd_extra.pk3"
+#define GAMESIG "hGZDOOM"
+#define BASEWAD "hgzdoom.pk3"
+#define OPTIONALWAD "there_is_no_optional_wad_here.pk3"
 
 // More stuff that needs to be different for derivatives.
-#define GAMENAME "GZDoom"
-#define WGAMENAME L"GZDoom"
-#define GAMENAMELOWERCASE "gzdoom"
-#define FORUM_URL "http://forum.zdoom.org/"
-#define BUGS_FORUM_URL	"http://forum.zdoom.org/viewforum.php?f=2"
+#define GAMENAME "Hedon"
+#define WGAMENAME L"Hedon"
+#define GAMENAMELOWERCASE "hedon"
+#define FORUM_URL "https://steamcommunity.com/app/1072150/discussions/"
+#define BUGS_FORUM_URL	"https://steamcommunity.com/app/1072150/discussions/"
 
 #if defined(__APPLE__) || defined(_WIN32)
 #define GAME_DIR GAMENAME
