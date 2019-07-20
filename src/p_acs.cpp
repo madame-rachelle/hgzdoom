@@ -4990,7 +4990,7 @@ int DLevelScript::SetUserCVar(int playernum, const char *cvarname, int value, bo
 	FBaseCVar **cvar_p = player->userinfo.CheckKey(FName(cvarname, true));
 	FBaseCVar *cvar;
 	// Only mod-created cvars may be set.
-	if (cvar_p == NULL || (cvar = *cvar_p) == NULL)
+	if (cvar_p == NULL || (cvar = *cvar_p) == NULL || (cvar->GetFlags() & CVAR_IGNORE) || !(cvar->GetFlags() & CVAR_MOD))
 	{
 		return 0;
 	}
