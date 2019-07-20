@@ -369,13 +369,13 @@ OptionMenu "OptionsMenu" protected
 	Submenu "$OPTMNU_MOUSE",			"MouseOptions"
 	Submenu "$OPTMNU_JOYSTICK",			"JoystickOptions"
 	StaticText " "
-	Submenu "$OPTMNU_PLAYER",			"NewPlayerMenu"
-	Submenu "$OPTMNU_GAMEPLAY",			"GameplayOptions"
-	Submenu "$OPTMNU_COMPATIBILITY",	"CompatibilityOptions"
+//	Submenu "$OPTMNU_PLAYER",			"NewPlayerMenu"
+//	Submenu "$OPTMNU_GAMEPLAY",			"GameplayOptions"
+//	Submenu "$OPTMNU_COMPATIBILITY",	"CompatibilityOptions"
 	Submenu "$OPTMNU_AUTOMAP",			"AutomapOptions"
 	Submenu "$OPTMNU_HUD",				"HUDOptions"
 	Submenu "$OPTMNU_MISCELLANEOUS",	"MiscOptions"
-	Submenu "$OPTMNU_NETWORK",			"NetworkOptions"
+//	Submenu "$OPTMNU_NETWORK",			"NetworkOptions"
 	Submenu "$OPTMNU_SOUND",			"SoundOptions"
 	Submenu "$OPTMNU_DISPLAY",			"VideoOptions"
 	Submenu "$OPTMNU_VIDEO",			"VideoModeMenu"
@@ -433,7 +433,7 @@ OptionValue "PlayerSkin"
 		PlayerDisplay 220, 48, "00 07 00", "40 53 40", 1, "PlayerDisplay"
 	}
 */
-
+/*
 OptionMenu "NewPlayerMenu" protected
 {
 	Title "$MNU_PLAYERSETUP"
@@ -451,7 +451,7 @@ OptionMenu "NewPlayerMenu" protected
 	Option "$PLYRMNU_ALWAYSRUN", cl_run, "OnOff"
 	Class "NewPlayerMenu"
 }
-
+*/
 // The old player menu is kept for mods that redefine it.
 ListMenu "PlayerMenu"
 {
@@ -508,7 +508,6 @@ OptionMenu "CustomizeControls" protected
 	Title "$CNTRLMNU_TITLE"
 
 	Submenu    "$CNTRLMNU_ACTION"      , "ActionControlsMenu"
-	Submenu    "$CNTRLMNU_CHAT"        , "ChatControlsMenu"
 	Submenu    "$CNTRLMNU_WEAPONS"     , "WeaponsControlMenu"
 	Submenu    "$CNTRLMNU_INVENTORY"   , "InventoryControlsMenu"
 	Submenu    "$CNTRLMNU_OTHER"       , "OtherControlsMenu"
@@ -1007,10 +1006,10 @@ OptionMenu "HUDOptions" protected
 {
 	Title "$HUDMNU_TITLE"
 	Submenu "$HUDMNU_SCALEOPT",				"ScalingOptions"
-	Submenu "$HUDMNU_ALTHUD",				"AltHudOptions"
+//	Submenu "$HUDMNU_ALTHUD",				"AltHudOptions"
 	Submenu "$HUDMNU_MESSAGE", 				"MessageOptions"
 	Submenu "$HUDMNU_FLASH", 				"FlashOptions"
-	Submenu "$DSPLYMNU_SCOREBOARD", 		"ScoreboardOptions"
+//	Submenu "$DSPLYMNU_SCOREBOARD", 		"ScoreboardOptions"
 	StaticText " "
 	Option "$HUDMNU_CROSSHAIRON",			"crosshairon", "OnOff"
 	Option "$HUDMNU_CROSSHAIR",				"crosshair", "Crosshairs"
@@ -1106,7 +1105,7 @@ OptionValue "AltHUDAmmoOrder"
 	0, "$OPTVAL_AMMOIMAGETEXT"
 	1, "$OPTVAL_AMMOTEXTIMAGE"
 }
-
+/*
 OptionMenu "AltHUDOptions" protected
 {
 	Title "$ALTHUDMNU_TITLE"
@@ -1142,7 +1141,7 @@ OptionMenu "AltHUDOptions" protected
 	option "$ALTHUDMNU_STATSNAMECOLOR",			"hudcolor_statnames", "TextColors"
 	option "$ALTHUDMNU_STATSCOLOR",				"hudcolor_stats", "TextColors"
 }
-
+*/
 //-------------------------------------------------------------------------------------------
 //
 // Misc menu
@@ -2273,7 +2272,7 @@ OptionMenu CustomResolutionMenu protected
  * Network options menu
  *
  *=======================================*/
-
+/*
 OptionMenu NetworkOptions protected
 {
 	Title "$NETMNU_TITLE"
@@ -2288,7 +2287,7 @@ OptionMenu NetworkOptions protected
 	Option "$NETMNU_TICBALANCE",			"net_ticbalance", "OnOff"
 
 }
-
+*/
 OptionValue ExtraTicMode
 {
 	0, "$OPTVAL_NONE"
