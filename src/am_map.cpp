@@ -145,8 +145,8 @@ CUSTOM_CVAR(Int, am_cheat, 0, 0)
 }
 
 
-CVAR(Int, am_rotate, 0, CVAR_ARCHIVE);
-CVAR(Int, am_overlay, 0, CVAR_ARCHIVE);
+CVAR(Int, am_rotate, 2, CVAR_ARCHIVE);
+CVAR(Int, am_overlay, 1, CVAR_ARCHIVE);
 CVAR(Bool, am_showsecrets, true, CVAR_ARCHIVE);
 CVAR(Bool, am_showmonsters, true, CVAR_ARCHIVE);
 CVAR(Bool, am_showitems, true, CVAR_ARCHIVE);

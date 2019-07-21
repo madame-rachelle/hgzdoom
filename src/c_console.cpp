@@ -134,7 +134,7 @@ static int worklen = 0;
 
 CVAR(Float, con_notifytime, 5.f, CVAR_ARCHIVE)
 CVAR(Bool, con_centernotify, false, CVAR_ARCHIVE)
-CUSTOM_CVAR(Int, con_scaletext, 1, CVAR_ARCHIVE)		// Scale notify text at high resolutions?
+CUSTOM_CVAR(Int, con_scaletext, 1, CVAR_ARCHIVE|CVAR_MOD)		// Scale notify text at high resolutions?
 {
 	if (self < 0) self = 0;
 }
