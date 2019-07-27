@@ -51,7 +51,7 @@
 #include "vm.h"
 #include "hwrenderer/utility/hw_cvars.h"
 
-CVAR(Float, underwater_fade_scalar, 1.0f, CVAR_ARCHIVE) // [Nash] user-settable underwater blend intensity
+CVAR(Float, underwater_fade_scalar, 0.7f, CVAR_ARCHIVE) // [Nash] user-settable underwater blend intensity
 
 CUSTOM_CVAR(Int, uiscale, 1, CVAR_ARCHIVE | CVAR_NOINITCALL)
 {
