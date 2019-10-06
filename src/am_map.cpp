@@ -124,7 +124,7 @@ struct islope_t
 //
 //=============================================================================
 
-CVAR(Bool, am_textured, false, CVAR_ARCHIVE)
+CVAR(Bool, am_textured, true, CVAR_ARCHIVE)
 CVAR(Int, am_showsubsector, -1, 0);
 
 
