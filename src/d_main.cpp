@@ -181,7 +181,7 @@ CUSTOM_CVAR (Int, fraglimit, 0, CVAR_SERVERINFO)
 }
 
 CVAR (Float, timelimit, 0.f, CVAR_SERVERINFO);
-CVAR (Int, wipetype, 1, CVAR_ARCHIVE);
+CVAR (Int, wipetype, 2, CVAR_ARCHIVE);
 CVAR (Int, snd_drawoutput, 0, 0);
 CUSTOM_CVAR (String, vid_cursor, "None", CVAR_ARCHIVE | CVAR_NOINITCALL)
 {
@@ -2332,7 +2332,7 @@ void D_DoomMain (void)
 
 	FString optionalwad = BaseFileSearch(OPTIONALWAD, NULL, true);
 
-	iwad_man = new FIWadManager(basewad);
+	iwad_man = new FIWadManager(basewad, optionalwad);
 
 	// Now that we have the IWADINFO, initialize the autoload ini sections.
 	GameConfig->DoAutoloadSetup(iwad_man);
@@ -2362,7 +2362,7 @@ void D_DoomMain (void)
 
 		if (iwad_man == NULL)
 		{
-			iwad_man = new FIWadManager(basewad);
+			iwad_man = new FIWadManager(basewad, optionalwad);
 		}
 		const FIWADInfo *iwad_info = iwad_man->FindIWAD(allwads, iwad, basewad, optionalwad);
 		gameinfo.gametype = iwad_info->gametype;
