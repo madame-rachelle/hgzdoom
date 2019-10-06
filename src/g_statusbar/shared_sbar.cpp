@@ -85,7 +85,7 @@ EXTERN_CVAR (Bool, noisedebug)
 EXTERN_CVAR (Int, con_scaletext)
 EXTERN_CVAR(Bool, vid_fps)
 EXTERN_CVAR(Bool, inter_subtitles)
-CVAR(Int, hud_scale, 0, CVAR_ARCHIVE);
+CVAR(Int, hud_scale, 1, CVAR_ARCHIVE);
 CVAR(Bool, log_vgafont, false, CVAR_ARCHIVE)
 
 DBaseStatusBar *StatusBar;
@@ -102,7 +102,7 @@ CVAR (Flag, pf_ice,			paletteflash, PF_ICE)
 CVAR (Flag, pf_hazard,		paletteflash, PF_HAZARD)
 
 // Stretch status bar to full screen width?
-CUSTOM_CVAR (Int, st_scale, 0, CVAR_ARCHIVE)
+CUSTOM_CVAR (Int, st_scale, 1, CVAR_ARCHIVE)
 {
 	if (self < -1)
 	{
@@ -129,8 +129,8 @@ CVAR (Int, crosshair, 0, CVAR_ARCHIVE)
 CVAR (Bool, crosshairforce, false, CVAR_ARCHIVE)
 CVAR (Color, crosshaircolor, 0xff0000, CVAR_ARCHIVE);
 CVAR (Int, crosshairhealth, 1, CVAR_ARCHIVE);
-CVAR (Float, crosshairscale, 1.0, CVAR_ARCHIVE);
-CVAR (Bool, crosshairgrow, false, CVAR_ARCHIVE);
+CVAR (Float, crosshairscale, 0.2, CVAR_ARCHIVE);
+CVAR (Bool, crosshairgrow, true, CVAR_ARCHIVE);
 CUSTOM_CVAR(Int, am_showmaplabel, 2, CVAR_ARCHIVE)
 {
 	if (self < 0 || self > 2) self = 2;

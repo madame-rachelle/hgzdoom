@@ -52,7 +52,7 @@
 #include <time.h>
 
 
-CVAR(Int,hud_althudscale, 0, CVAR_ARCHIVE)				// Scale the hud to 640x400?
+CVAR(Int,hud_althudscale, 1, CVAR_ARCHIVE)				// Scale the hud to 640x400?
 CVAR(Bool,hud_althud, false, CVAR_ARCHIVE)				// Enable/Disable the alternate HUD
 
 														// These are intentionally not the same as in the automap!

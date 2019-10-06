@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 2.8.7 )
-project(GZDoom)
+project(HGZDoom)
 
 if( COMMAND cmake_policy )
 	if( POLICY CMP0011 )
@@ -117,7 +117,7 @@ IF( NOT CMAKE_BUILD_TYPE )
 ENDIF()
 
 set( ZDOOM_OUTPUT_DIR ${CMAKE_BINARY_DIR} CACHE PATH "Directory where zdoom.pk3 and the executable will be created." )
-set( ZDOOM_EXE_NAME "gzdoom" CACHE FILEPATH "Name of the executable to create" )
+set( ZDOOM_EXE_NAME "hedon" CACHE FILEPATH "Name of the executable to create" )
 if( MSVC )
 	# Allow the user to use ZDOOM_OUTPUT_DIR as a single release point.
 	# Use zdoom, zdoomd, zdoom64, and zdoomd64 for the binary names
@@ -405,9 +405,6 @@ add_subdirectory( tools )
 add_subdirectory( libraries/dumb )
 add_subdirectory( libraries/gdtoa )
 add_subdirectory( wadsrc )
-add_subdirectory( wadsrc_bm )
-add_subdirectory( wadsrc_lights )
-add_subdirectory( wadsrc_extra )
 add_subdirectory( src )
 
 if( NOT CMAKE_CROSSCOMPILING )
