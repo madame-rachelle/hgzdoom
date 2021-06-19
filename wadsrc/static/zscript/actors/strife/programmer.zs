@@ -25,6 +25,7 @@ class Programmer : Actor
 		+NOTARGETSWITCH
 		DamageFactor "Fire", 0.5;
 		MinMissileChance 150;
+		Tag "$TAG_PROGRAMMER";
 		AttackSound "programmer/attack";
 		PainSound "programmer/pain";
 		DeathSound "programmer/death";
@@ -92,7 +93,7 @@ class Programmer : Actor
 		if (!CheckMeleeRange ())
 			return;
 
-		A_PlaySound("programmer/clank", CHAN_WEAPON);
+		A_StartSound("programmer/clank", CHAN_WEAPON);
 
 		int damage = random[Programmer](1, 10) * 6;
 		int newdam = target.DamageMobj (self, self, damage, 'Melee');

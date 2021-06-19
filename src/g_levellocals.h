@@ -54,6 +54,7 @@
 #include "r_data/r_sections.h"
 #include "r_data/r_canvastexture.h"
 #include "r_data/r_interpolate.h"
+#include "doom_aabbtree.h"
 
 //============================================================================
 //
@@ -149,7 +150,8 @@ struct FLevelLocals
 	void Init();
 
 private:
-	line_t *FindPortalDestination(line_t *src, int tag);
+	bool ShouldDoIntermission(cluster_info_t* nextcluster, cluster_info_t* thiscluster);
+	line_t *FindPortalDestination(line_t *src, int tag, int matchtype = -1);
 	void BuildPortalBlockmap();
 	void UpdatePortal(FLinePortal *port);
 	void CollectLinkedPortals();
@@ -164,6 +166,7 @@ private:
 	void ReadOnePlayer(FSerializer &arc, bool skipload);
 	void ReadMultiplePlayers(FSerializer &arc, int numPlayers, int numPlayersNow, bool skipload);
 	void SerializeSounds(FSerializer &arc);
+	void PlayerSpawnPickClass (int playernum);
 
 public:
 	void SnapshotLevel();
@@ -429,6 +432,7 @@ public:
 
 	TArray<vertex_t> vertexes;
 	TArray<sector_t> sectors;
+	TArray<extsector_t> extsectors; // container for non-trivial sector information. sector_t must be trivially copyable for *_fakeflat to work as intended.
 	TArray<line_t*> linebuffer;	// contains the line lists for the sectors.
 	TArray<subsector_t*> subsectorbuffer;	// contains the subsector lists for the sectors.
 	TArray<line_t> lines;
@@ -456,6 +460,7 @@ public:
 	FSectionContainer sections;
 	FCanvasTextureInfo canvasTextureInfo;
 	EventManager *localEventManager = nullptr;
+	DoomLevelAABBTree* aabbTree = nullptr;
 
 	// [ZZ] Destructible geometry information
 	TMap<int, FHealthGroup> healthGroups;
@@ -796,19 +801,19 @@ inline FLevelLocals *line_t::GetLevel() const
 }
 inline FLinePortal *line_t::getPortal() const
 {
-	return portalindex >= GetLevel()->linePortals.Size() ? (FLinePortal*)nullptr : &GetLevel()->linePortals[portalindex];
+	return portalindex == UINT_MAX && portalindex >= GetLevel()->linePortals.Size() ? (FLinePortal*)nullptr : &GetLevel()->linePortals[portalindex];
 }
 
 // returns true if the portal is crossable by actors
 inline bool line_t::isLinePortal() const
 {
-	return portalindex >= GetLevel()->linePortals.Size() ? false : !!(GetLevel()->linePortals[portalindex].mFlags & PORTF_PASSABLE);
+	return portalindex == UINT_MAX && portalindex >= GetLevel()->linePortals.Size() ? false : !!(GetLevel()->linePortals[portalindex].mFlags & PORTF_PASSABLE);
 }
 
 // returns true if the portal needs to be handled by the renderer
 inline bool line_t::isVisualPortal() const
 {
-	return portalindex >= GetLevel()->linePortals.Size() ? false : !!(GetLevel()->linePortals[portalindex].mFlags & PORTF_VISIBLE);
+	return portalindex == UINT_MAX && portalindex >= GetLevel()->linePortals.Size() ? false : !!(GetLevel()->linePortals[portalindex].mFlags & PORTF_VISIBLE);
 }
 
 inline line_t *line_t::getPortalDestination() const

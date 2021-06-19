@@ -64,7 +64,7 @@
 #include "actorinlines.h"
 #include "g_game.h"
 #include "i_system.h"
-#include "atterm.h"
+#include "v_draw.h"
 
 // EXTERNAL DATA DECLARATIONS ----------------------------------------------
 
@@ -105,6 +105,21 @@ CUSTOM_CVAR(Float, r_quakeintensity, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 	else if (self > 1.f) self = 1.f;
 }
 
+CUSTOM_CVARD(Int, r_actorspriteshadow, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG, "render actor sprite shadows. 0 = off, 1 = default, 2 = always on")
+{
+	if (self < 0)
+		self = 0;
+	else if (self > 2)
+		self = 2;
+}
+CUSTOM_CVARD(Float, r_actorspriteshadowdist, 1500.0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG, "how far sprite shadows should be rendered")
+{
+	if (self < 0.f)
+		self = 0.f;
+	else if (self > 8192.f)
+		self = 8192.f;
+}
+
 int 			viewwindowx;
 int 			viewwindowy;
 int				viewwidth;
@@ -141,7 +156,6 @@ int				LocalViewPitch;
 bool			LocalKeyboardTurner;
 
 int				setblocks;
-bool			setsizeneeded;
 
 unsigned int	R_OldBlend = ~0;
 int 			validcount = 1; 	// increment every time a check is made
@@ -154,7 +168,6 @@ DAngle viewpitch;
 DEFINE_GLOBAL(LocalViewPitch);
 
 // CODE --------------------------------------------------------------------
-static void R_Shutdown ();
 
 //==========================================================================
 //
@@ -370,7 +383,7 @@ CUSTOM_CVAR (Int, screenblocks, 10, CVAR_ARCHIVE)
 //==========================================================================
 
 FRenderer *CreateSWRenderer();
-
+FRenderer* SWRenderer;
 
 //==========================================================================
 //
@@ -380,8 +393,6 @@ FRenderer *CreateSWRenderer();
 
 void R_Init ()
 {
-	atterm (R_Shutdown);
-
 	StartScreen->Progress();
 	R_InitTranslationTables ();
 	R_SetViewSize (screenblocks);
@@ -400,12 +411,10 @@ void R_Init ()
 //
 //==========================================================================
 
-static void R_Shutdown ()
+void R_Shutdown ()
 {
 	if (SWRenderer != nullptr) delete SWRenderer;
 	SWRenderer = nullptr;
-	R_DeinitTranslationTables();
-	R_DeinitColormaps ();
 }
 
 //==========================================================================
@@ -810,7 +819,17 @@ void R_SetupFrame (FRenderViewpoint &viewpoint, FViewWindow &viewwindow, AActor 
 		viewpoint.sector = viewpoint.camera->Sector;
 		viewpoint.showviewer = false;
 	}
-	iview->New.Angles = viewpoint.camera->Angles;
+
+	// [MC] Apply the view angles first, which is the offsets. If the absolute isn't desired,
+	// add the standard angles on top of it.
+	viewpoint.Angles = viewpoint.camera->ViewAngles;
+
+	if (!(viewpoint.camera->flags8 & MF8_ABSVIEWANGLES))
+	{
+		viewpoint.Angles += viewpoint.camera->Angles;
+	}
+
+	iview->New.Angles = viewpoint.Angles;
 	if (viewpoint.camera->player != 0)
 	{
 		player = viewpoint.camera->player;
@@ -1037,30 +1056,6 @@ void R_SetupFrame (FRenderViewpoint &viewpoint, FViewWindow &viewwindow, AActor 
 }
 
 
-//==========================================================================
-//
-// CVAR transsouls
-//
-// How translucent things drawn with STYLE_SoulTrans are. Normally, only
-// Lost Souls have this render style.
-// Values less than 0.25 will automatically be set to
-// 0.25 to ensure some degree of visibility. Likewise, values above 1.0 will
-// be set to 1.0, because anything higher doesn't make sense.
-//
-//==========================================================================
-
-CUSTOM_CVAR(Float, transsouls, 0.75f, CVAR_ARCHIVE)
-{
-	if (self < 0.25f)
-	{
-		self = 0.25f;
-	}
-	else if (self > 1.f)
-	{
-		self = 1.f;
-	}
-}
-
 CUSTOM_CVAR(Float, maxviewpitch, 90.f, CVAR_ARCHIVE | CVAR_SERVERINFO)
 {
 	if (self>90.f) self = 90.f;
@@ -1069,5 +1064,31 @@ CUSTOM_CVAR(Float, maxviewpitch, 90.f, CVAR_ARCHIVE | CVAR_SERVERINFO)
 	{
 		// [SP] Update pitch limits to the netgame/gamesim.
 		players[consoleplayer].SendPitchLimits();
+	}
+}
+
+//==========================================================================
+//
+// R_ShouldDrawSpriteShadow
+//
+//==========================================================================
+
+bool R_ShouldDrawSpriteShadow(AActor *thing)
+{
+	switch (r_actorspriteshadow)
+	{
+	case 1:
+		return (thing->renderflags & RF_CASTSPRITESHADOW);
+
+	case 2:
+		if (thing->renderflags & RF_CASTSPRITESHADOW)
+		{
+			return true;
+		}
+		return (thing->renderflags & RF_CASTSPRITESHADOW) || (!(thing->renderflags & RF_NOSPRITESHADOW) && ((thing->flags3 & MF3_ISMONSTER) || thing->player != nullptr));
+
+	default:
+	case 0:
+		return false;
 	}
 }

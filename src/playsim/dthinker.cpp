@@ -35,7 +35,7 @@
 #include "dthinker.h"
 #include "stats.h"
 #include "p_local.h"
-#include "serializer.h"
+#include "serializer_doom.h"
 #include "d_player.h"
 #include "vm.h"
 #include "c_dispatch.h"
@@ -82,7 +82,7 @@ void FThinkerCollection::Link(DThinker *thinker, int statnum)
 	}
 	else
 	{
-		thinker->ObjectFlags &= ~OF_JustSpawned;
+		if (statnum != STAT_TRAVELLING) thinker->ObjectFlags &= ~OF_JustSpawned;
 		list = &Thinkers[statnum];
 	}
 	list->AddTail(thinker);
@@ -250,6 +250,7 @@ void FThinkerCollection::DestroyAllThinkers()
 	GC::FullGC();
 	if (error)
 	{
+		ClearGlobalVMStack();
 		I_Error("DestroyAllThinkers failed");
 	}
 }

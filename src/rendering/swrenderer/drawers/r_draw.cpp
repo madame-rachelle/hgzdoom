@@ -33,11 +33,12 @@
 */
 
 #include <stddef.h>
+#include <cmath>
 
 #include "templates.h"
 #include "doomdef.h"
 
-#include "w_wad.h"
+#include "filesystem.h"
 #include "v_video.h"
 #include "doomstat.h"
 #include "st_stuff.h"
@@ -51,6 +52,8 @@
 #include "r_draw_pal.h"
 #include "r_thread.h"
 #include "swrenderer/scene/r_light.h"
+#include "playsim/a_dynlight.h"
+#include "polyrenderer/drawers/poly_thread.h"
 
 CVAR(Bool, r_dynlights, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 CVAR(Bool, r_fuzzscale, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
@@ -193,7 +196,7 @@ namespace swrenderer
 
 	void R_UpdateFuzzPosFrameStart()
 	{
-		if (r_fuzzscale || V_IsPolyRenderer())
+		if (r_fuzzscale)
 		{
 			static int next_random = 0;
 
@@ -207,7 +210,7 @@ namespace swrenderer
 
 	void R_UpdateFuzzPos(const SpriteDrawerArgs &args)
 	{
-		if (!r_fuzzscale && !V_IsPolyRenderer())
+		if (!r_fuzzscale)
 		{
 			int yl = MAX(args.FuzzY1(), 1);
 			int yh = MIN(args.FuzzY2(), fuzzviewheight);
@@ -216,159 +219,180 @@ namespace swrenderer
 		}
 	}
 
-	class DepthColumnCommand : public DrawerCommand
+	/////////////////////////////////////////////////////////////////////////
+
+	void SWPixelFormatDrawers::DrawDepthColumn(const WallColumnDrawerArgs& args, float idepth)
 	{
-	public:
-		DepthColumnCommand(const WallDrawerArgs &args, float idepth) : idepth(idepth)
-		{
-			auto rendertarget = args.Viewport()->RenderTarget;
-			if (rendertarget->IsBgra())
-			{
-				uint32_t *destorg = (uint32_t*)rendertarget->GetPixels();
-				destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
-				uint32_t *dest = (uint32_t*)args.Dest();
-				int offset  = (int)(ptrdiff_t)(dest - destorg);
-				x = offset % rendertarget->GetPitch();
-				y = offset / rendertarget->GetPitch();
-			}
-			else
-			{
-				uint8_t *destorg = rendertarget->GetPixels();
-				destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
-				uint8_t *dest = (uint8_t*)args.Dest();
-				int offset = (int)(ptrdiff_t)(dest - destorg);
-				x = offset % rendertarget->GetPitch();
-				y = offset / rendertarget->GetPitch();
-			}
-			count = args.Count();
-		}
-
-		DepthColumnCommand(const SkyDrawerArgs &args, float idepth) : idepth(idepth)
-		{
-			auto rendertarget = args.Viewport()->RenderTarget;
-			if (rendertarget->IsBgra())
-			{
-				uint32_t *destorg = (uint32_t*)rendertarget->GetPixels();
-				destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
-				uint32_t *dest = (uint32_t*)args.Dest();
-				int offset = (int)(ptrdiff_t)(dest - destorg);
-				x = offset % rendertarget->GetPitch();
-				y = offset / rendertarget->GetPitch();
-			}
-			else
-			{
-				uint8_t *destorg = rendertarget->GetPixels();
-				destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
-				uint8_t *dest = (uint8_t*)args.Dest();
-				int offset = (int)(ptrdiff_t)(dest - destorg);
-				x = offset % rendertarget->GetPitch();
-				y = offset / rendertarget->GetPitch();
-			}
-			count = args.Count();
-		}
-
-		void Execute(DrawerThread *thread) override
-		{
-			auto zbuffer = PolyZBuffer::Instance();
-			int pitch = PolyStencilBuffer::Instance()->Width();
-			float *values = zbuffer->Values() + y * pitch + x;
-			int cnt = count;
-
-			values = thread->dest_for_thread(y, pitch, values);
-			cnt = thread->count_for_thread(y, cnt);
-			pitch *= thread->num_cores;
-
-			float depth = idepth;
-			for (int i = 0; i < cnt; i++)
-			{
-				*values = depth;
-				values += pitch;
-			}
-		}
-
-	private:
 		int x, y, count;
-		float idepth;
-	};
 
-	// #define DEPTH_DEBUG
+		auto rendertarget = args.Viewport()->RenderTarget;
+		if (rendertarget->IsBgra())
+		{
+			uint32_t* destorg = (uint32_t*)rendertarget->GetPixels();
+			destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
+			uint32_t* dest = (uint32_t*)args.Dest();
+			int offset = (int)(ptrdiff_t)(dest - destorg);
+			x = offset % rendertarget->GetPitch();
+			y = offset / rendertarget->GetPitch();
+		}
+		else
+		{
+			uint8_t* destorg = rendertarget->GetPixels();
+			destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
+			uint8_t* dest = (uint8_t*)args.Dest();
+			int offset = (int)(ptrdiff_t)(dest - destorg);
+			x = offset % rendertarget->GetPitch();
+			y = offset / rendertarget->GetPitch();
+		}
+		count = args.Count();
 
-	class DepthSpanCommand : public DrawerCommand
+		auto zbuffer = thread->Poly->depthstencil;
+		int pitch = zbuffer->Width();
+		float* values = zbuffer->DepthValues() + y * pitch + x;
+		int cnt = count;
+
+		float depth = idepth;
+		for (int i = 0; i < cnt; i++)
+		{
+			*values = depth;
+			values += pitch;
+		}
+	}
+
+	void SWPixelFormatDrawers::SetLights(WallColumnDrawerArgs& drawerargs, int x, int y1, const WallDrawerArgs& wallargs)
 	{
-	public:
-		DepthSpanCommand(const SpanDrawerArgs &args, float idepth1, float idepth2) : idepth1(idepth1), idepth2(idepth2)
+		bool mirror = !!(wallargs.PortalMirrorFlags & RF_XFLIP);
+		int tx = x;
+		if (mirror)
+			tx = viewwidth - tx - 1;
+
+		// Find column position in view space
+		float w1 = 1.0f / wallargs.WallC.sz1;
+		float w2 = 1.0f / wallargs.WallC.sz2;
+		float t = (x - wallargs.WallC.sx1 + 0.5f) / (wallargs.WallC.sx2 - wallargs.WallC.sx1);
+		float wcol = w1 * (1.0f - t) + w2 * t;
+		float zcol = 1.0f / wcol;
+
+		drawerargs.dc_viewpos.X = (float)((tx + 0.5 - wallargs.CenterX) / wallargs.CenterX * zcol);
+		drawerargs.dc_viewpos.Y = zcol;
+		drawerargs.dc_viewpos.Z = (float)((wallargs.CenterY - y1 - 0.5) / wallargs.InvZtoScale * zcol);
+		drawerargs.dc_viewpos_step.Z = (float)(-zcol / wallargs.InvZtoScale);
+
+		drawerargs.dc_num_lights = 0;
+
+		// Setup lights for column
+		FLightNode* cur_node = drawerargs.LightList();
+		while (cur_node)
 		{
-			y = args.DestY();
-			x1 = args.DestX1();
-			x2 = args.DestX2();
-			#ifdef DEPTH_DEBUG
-			dest = (uint32_t*)args.Viewport()->GetDest(0, args.DestY());
-			#endif
-		}
-
-		void Execute(DrawerThread *thread) override
-		{
-			if (thread->skipped_by_thread(y))
-				return;
-
-			auto zbuffer = PolyZBuffer::Instance();
-			int pitch = PolyStencilBuffer::Instance()->Width();
-			float *values = zbuffer->Values() + y * pitch;
-			int end = x2;
-
-			if (idepth1 == idepth2)
+			if (cur_node->lightsource->IsActive())
 			{
-				float depth = idepth1;
-				#ifdef DEPTH_DEBUG
-				uint32_t gray = clamp<int32_t>((int32_t)(1.0f / depth / 4.0f), 0, 255);
-				uint32_t color = MAKEARGB(255, gray, gray, gray);
-				#endif
-				for (int x = x1; x <= end; x++)
+				double lightX = cur_node->lightsource->X() - wallargs.ViewpointPos.X;
+				double lightY = cur_node->lightsource->Y() - wallargs.ViewpointPos.Y;
+				double lightZ = cur_node->lightsource->Z() - wallargs.ViewpointPos.Z;
+
+				float lx = (float)(lightX * wallargs.Sin - lightY * wallargs.Cos) - drawerargs.dc_viewpos.X;
+				float ly = (float)(lightX * wallargs.TanCos + lightY * wallargs.TanSin) - drawerargs.dc_viewpos.Y;
+				float lz = (float)lightZ;
+
+				// Precalculate the constant part of the dot here so the drawer doesn't have to.
+				bool is_point_light = cur_node->lightsource->IsAttenuated();
+				float lconstant = lx * lx + ly * ly;
+				float nlconstant = is_point_light ? lx * drawerargs.dc_normal.X + ly * drawerargs.dc_normal.Y : 0.0f;
+
+				// Include light only if it touches this column
+				float radius = cur_node->lightsource->GetRadius();
+				if (radius * radius >= lconstant && nlconstant >= 0.0f)
 				{
-					values[x] = depth;
-					#ifdef DEPTH_DEBUG
-					dest[x] = color;
-					#endif
+					uint32_t red = cur_node->lightsource->GetRed();
+					uint32_t green = cur_node->lightsource->GetGreen();
+					uint32_t blue = cur_node->lightsource->GetBlue();
+
+					auto& light = drawerargs.dc_lights[drawerargs.dc_num_lights++];
+					light.x = lconstant;
+					light.y = nlconstant;
+					light.z = lz;
+					light.radius = 256.0f / cur_node->lightsource->GetRadius();
+					light.color = (red << 16) | (green << 8) | blue;
+
+					if (drawerargs.dc_num_lights == WallColumnDrawerArgs::MAX_DRAWER_LIGHTS)
+						break;
 				}
 			}
-			else
-			{
-				float depth = idepth1;
-				float step = (idepth2 - idepth1) / (x2 - x1 + 1);
-				for (int x = x1; x <= end; x++)
-				{
-					#ifdef DEPTH_DEBUG
-					uint32_t gray = clamp<int32_t>((int32_t)(1.0f / depth / 4.0f), 0, 255);
-					uint32_t color = MAKEARGB(255, gray, gray, gray);
-					dest[x] = color;
-					#endif
 
-					values[x] = depth;
-					depth += step;
-				}
-			}
+			cur_node = cur_node->nextLight;
 		}
+	}
 
-	private:
-		int y, x1, x2;
-		float idepth1, idepth2;
-		#ifdef DEPTH_DEBUG
-		uint32_t *dest;
-		#endif
-	};
+	/////////////////////////////////////////////////////////////////////////
 
 	void SWPixelFormatDrawers::DrawDepthSkyColumn(const SkyDrawerArgs &args, float idepth)
 	{
-		Queue->Push<DepthColumnCommand>(args, idepth);
-	}
+		int x, y, count;
+		auto rendertarget = args.Viewport()->RenderTarget;
+		if (rendertarget->IsBgra())
+		{
+			uint32_t* destorg = (uint32_t*)rendertarget->GetPixels();
+			destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
+			uint32_t* dest = (uint32_t*)args.Dest();
+			int offset = (int)(ptrdiff_t)(dest - destorg);
+			x = offset % rendertarget->GetPitch();
+			y = offset / rendertarget->GetPitch();
+		}
+		else
+		{
+			uint8_t* destorg = rendertarget->GetPixels();
+			destorg += viewwindowx + viewwindowy * rendertarget->GetPitch();
+			uint8_t* dest = (uint8_t*)args.Dest();
+			int offset = (int)(ptrdiff_t)(dest - destorg);
+			x = offset % rendertarget->GetPitch();
+			y = offset / rendertarget->GetPitch();
+		}
+		count = args.Count();
 
-	void SWPixelFormatDrawers::DrawDepthWallColumn(const WallDrawerArgs &args, float idepth)
-	{
-		Queue->Push<DepthColumnCommand>(args, idepth);
+		auto zbuffer = thread->Poly->depthstencil;
+		int pitch = zbuffer->Width();
+		float* values = zbuffer->DepthValues() + y * pitch + x;
+		int cnt = count;
+
+		float depth = idepth;
+		for (int i = 0; i < cnt; i++)
+		{
+			*values = depth;
+			values += pitch;
+		}
 	}
 
 	void SWPixelFormatDrawers::DrawDepthSpan(const SpanDrawerArgs &args, float idepth1, float idepth2)
 	{
-		Queue->Push<DepthSpanCommand>(args, idepth1, idepth2);
+		int y = args.DestY();
+		int x1 = args.DestX1();
+		int x2 = args.DestX2();
+
+		auto zbuffer = thread->Poly->depthstencil;
+		int pitch = zbuffer->Width();
+		float *values = zbuffer->DepthValues() + x1 + y * pitch;
+
+		int count = x2 - x1 + 1;
+
+		if (idepth1 == idepth2)
+		{
+			float depth = idepth1;
+			for (int i = 0; i < count; i++)
+			{
+				*values = depth;
+				values++;
+			}
+		}
+		else
+		{
+			float depth = idepth1;
+			float step = (idepth2 - idepth1) / (x2 - x1 + 1);
+			for (int i = 0; i < count; i++)
+			{
+				*values = depth;
+				values++;
+				depth += step;
+			}
+		}
 	}
 }

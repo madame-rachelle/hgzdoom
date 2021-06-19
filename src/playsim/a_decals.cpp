@@ -40,10 +40,11 @@
 #include "decallib.h"
 #include "c_dispatch.h"
 #include "d_net.h"
-#include "serializer.h"
+#include "serializer_doom.h"
 #include "doomdata.h"
 #include "g_levellocals.h"
 #include "vm.h"
+#include "texturemanager.h"
 
 EXTERN_CVAR (Bool, cl_spreaddecals)
 EXTERN_CVAR (Int, cl_maxdecals)
@@ -244,6 +245,17 @@ void DBaseDecal::SetShade (int r, int g, int b)
 
 //----------------------------------------------------------------------------
 //
+//
+//
+//----------------------------------------------------------------------------
+
+void DBaseDecal::SetTranslation(uint32_t trans)
+{
+	Translation = trans;
+}
+
+//----------------------------------------------------------------------------
+//
 // Returns the texture the decal stuck to.
 //
 //----------------------------------------------------------------------------
@@ -329,7 +341,7 @@ FTextureID DBaseDecal::StickToWall (side_t *wall, double x, double y, F3DFloor *
 	else return FNullTextureID();
 	CalcFracPos (wall, x, y);
 
-	FTexture *texture = TexMan.GetTexture(tex);
+	auto texture = TexMan.GetGameTexture(tex);
 
 	if (texture == NULL || texture->allowNoDecals())
 	{
@@ -601,19 +613,19 @@ void DBaseDecal::SpreadRight (double r, side_t *feelwall, double wallsize, F3DFl
 void DBaseDecal::Spread (const FDecalTemplate *tpl, side_t *wall, double x, double y, double z, F3DFloor * ffloor)
 {
 	SpreadInfo spread;
-	FTexture *tex;
+	FGameTexture *tex;
 	vertex_t *v1;
 	double rorg, ldx, ldy;
 
 	GetWallStuff (wall, v1, ldx, ldy);
 	rorg = Length (x - v1->fX(), y - v1->fY());
 
-	if ((tex = TexMan.GetTexture(PicNum)) == NULL)
+	if ((tex = TexMan.GetGameTexture(PicNum)) == NULL)
 	{
 		return;
 	}
 
-	int dwidth = tex->GetDisplayWidth ();
+	double dwidth = tex->GetDisplayWidth ();
 
 	spread.DecalWidth = dwidth * ScaleX;
 	spread.DecalLeft = tex->GetDisplayLeftOffset() * ScaleX;
@@ -696,7 +708,7 @@ void DImpactDecal::Expired()
 //
 //----------------------------------------------------------------------------
 
-DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const char *name, const DVector3 &pos, side_t *wall, F3DFloor * ffloor, PalEntry color)
+DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const char *name, const DVector3 &pos, side_t *wall, F3DFloor * ffloor, PalEntry color, uint32_t bloodTranslation)
 {
 	if (cl_maxdecals > 0)
 	{
@@ -704,7 +716,7 @@ DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const char *name,
 
 		if (tpl != NULL && (tpl = tpl->GetDecal()) != NULL)
 		{
-			return StaticCreate (Level, tpl, pos, wall, ffloor, color);
+			return StaticCreate (Level, tpl, pos, wall, ffloor, color, bloodTranslation);
 		}
 	}
 	return NULL;
@@ -716,7 +728,7 @@ DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const char *name,
 //
 //----------------------------------------------------------------------------
 
-DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const FDecalTemplate *tpl, const DVector3 &pos, side_t *wall, F3DFloor * ffloor, PalEntry color)
+DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const FDecalTemplate *tpl, const DVector3 &pos, side_t *wall, F3DFloor * ffloor, PalEntry color, uint32_t bloodTranslation)
 {
 	DImpactDecal *decal = NULL;
 	if (tpl != NULL && cl_maxdecals > 0 && !(wall->Flags & WALLF_NOAUTODECALS))
@@ -730,7 +742,10 @@ DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const FDecalTempl
 			// apply the custom color as well.
 			if (tpl->ShadeColor != tpl_low->ShadeColor) lowercolor=0;
 			else lowercolor = color;
-			StaticCreate (Level, tpl_low, pos, wall, ffloor, lowercolor);
+
+			uint32_t lowerTrans = (bloodTranslation != 0 ? bloodTranslation : 0);
+
+			StaticCreate (Level, tpl_low, pos, wall, ffloor, lowercolor, lowerTrans);
 		}
 		decal = Level->CreateThinker<DImpactDecal>(pos.Z);
 		if (decal == NULL)
@@ -740,6 +755,7 @@ DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const FDecalTempl
 
 		if (!decal->StickToWall (wall, pos.X, pos.Y, ffloor).isValid())
 		{
+			decal->Destroy();
 			return NULL;
 		}
 		decal->CheckMax();
@@ -748,6 +764,13 @@ DImpactDecal *DImpactDecal::StaticCreate (FLevelLocals *Level, const FDecalTempl
 		if (color != 0)
 		{
 			decal->SetShade (color.r, color.g, color.b);
+		}
+
+		// [Nash] opaque blood
+		if (bloodTranslation != 0 && tpl->ShadeColor == 0 && tpl->opaqueBlood)
+		{
+			decal->SetTranslation(bloodTranslation);
+			decal->RenderStyle = STYLE_Normal;
 		}
 
 		if (!cl_spreaddecals || !decal->PicNum.isValid())
@@ -782,6 +805,14 @@ DBaseDecal *DImpactDecal::CloneSelf (const FDecalTemplate *tpl, double ix, doubl
 			decal->CheckMax();
 			tpl->ApplyToDecal (decal, wall);
 			decal->AlphaColor = AlphaColor;
+
+			// [Nash] opaque blood
+			if (tpl->ShadeColor == 0 && tpl->opaqueBlood)
+			{
+				decal->SetTranslation(Translation);
+				decal->RenderStyle = STYLE_Normal;
+			}
+
 			decal->RenderFlags = (decal->RenderFlags & RF_DECALMASK) |
 								 (this->RenderFlags & ~RF_DECALMASK);
 		}
@@ -800,16 +831,36 @@ DBaseDecal *DImpactDecal::CloneSelf (const FDecalTemplate *tpl, double ix, doubl
 //
 //----------------------------------------------------------------------------
 
-void SprayDecal(AActor *shooter, const char *name, double distance)
+void SprayDecal(AActor *shooter, const char *name, double distance, DVector3 offset, DVector3 direction)
 {
+	//just in case
+	if (!shooter)
+		return;
+
 	FTraceResults trace;
+	DVector3 off(0, 0, 0), dir(0, 0, 0);
 
-	DAngle ang = shooter->Angles.Yaw;
-	DAngle pitch = shooter->Angles.Pitch;
-	double c = pitch.Cos();
-	DVector3 vec(c * ang.Cos(), c * ang.Sin(), -pitch.Sin());
+	//use vanilla offset only if "custom" equal to zero
+	if (offset.isZero() )
+		off = shooter->PosPlusZ(shooter->Height / 2);
 
-	if (Trace(shooter->PosPlusZ(shooter->Height / 2), shooter->Sector, vec, distance, 0, ML_BLOCKEVERYTHING, shooter, trace, TRACE_NoSky))
+	else
+		off = shooter->Pos() + offset;
+
+	//same for direction
+	if (direction.isZero() )
+	{
+		DAngle ang = shooter->Angles.Yaw;
+		DAngle pitch = shooter->Angles.Pitch;
+		double c = pitch.Cos();
+		dir = DVector3(c * ang.Cos(), c * ang.Sin(), -pitch.Sin());
+	}
+	
+	else
+		dir = direction;
+
+
+	if (Trace(off, shooter->Sector, dir, distance, 0, ML_BLOCKEVERYTHING, shooter, trace, TRACE_NoSky))
 	{
 		if (trace.HitType == TRACE_HitWall)
 		{

@@ -57,6 +57,7 @@
 #include "g_levellocals.h"
 #include "vm.h"
 #include "p_destructible.h"
+#include "s_sndseq.h"
 
 // Remaps EE sector change types to Generic_Floor values. According to the Eternity Wiki:
 /*
@@ -232,6 +233,20 @@ FUNC(LS_Polyobj_Stop)
 // Polyobj_Stop (po)
 {
 	return EV_StopPoly (Level, arg0);
+}
+
+FUNC(LS_Polyobj_StopSound)
+// Polyobj_StopSound (po)
+{
+	FPolyObj *poly;
+
+	poly = Level->GetPolyobj(arg0);
+	if (poly != nullptr)
+	{
+		SN_StopSequence(poly);
+	}
+
+	return true;
 }
 
 FUNC(LS_Door_Close)
@@ -558,7 +573,7 @@ FUNC(LS_Generic_Floor)
 	}
 
 	return Level->EV_DoFloor (type, ln, arg0, SPEED(arg1), arg2,
-					   (arg4 & 16) ? 20 : -1, arg4 & 7, false);
+					   (arg4 & 16) ? 20 : -1, arg4 & 7, true);
 					   
 }
 
@@ -2173,7 +2188,7 @@ FUNC(LS_UsePuzzleItem)
 	}
 
 	// [RH] Say "hmm" if you don't have the puzzle item
-	S_Sound (it, CHAN_VOICE, "*puzzfail", 1, ATTN_IDLE);
+	S_Sound (it, CHAN_VOICE, 0, "*puzzfail", 1, ATTN_IDLE);
 	return false;
 }
 
@@ -3197,7 +3212,7 @@ FUNC(LS_SendToCommunicator)
 		{
 			S_StopSound (CHAN_VOICE);
 			it->player->SetSubtitle(arg0, name);
-			S_Sound (CHAN_VOICE, name, 1, ATTN_NORM);
+			S_Sound (CHAN_VOICE, 0, name, 1, ATTN_NORM);
 
 			// Get the message from the LANGUAGE lump.
 			FString msg;
@@ -3813,8 +3828,7 @@ static lnSpecFunc LineSpecials[] =
 	/* 280 */ LS_Ceiling_MoveToValueAndCrush,
 	/* 281 */ LS_Line_SetAutomapFlags,
 	/* 282 */ LS_Line_SetAutomapStyle,
-
-
+	/* 283 */ LS_Polyobj_StopSound,
 };
 
 #define DEFINE_SPECIAL(name, num, min, max, mmax) {#name, num, min, max, mmax},
@@ -3911,6 +3925,13 @@ int P_FindLineSpecial (const char *string, int *min_args, int *max_args)
 			max = mid - 1;
 		}
 	}
+	// Alias for ZScript. Check here to have universal support everywhere.
+	if (!stricmp(string, "TeleportSpecial"))
+	{
+		if (min_args != NULL) *min_args = 1;
+		if (max_args != NULL) *max_args = 3;
+		return Teleport;
+	}
 	return 0;
 }
 
@@ -3958,4 +3979,3 @@ DEFINE_ACTION_FUNCTION(FLevelLocals, ExecuteSpecial)
 
 	ACTION_RETURN_INT(P_ExecuteSpecial(self, special, linedef, activator, lineside, arg1, arg2, arg3, arg4, arg5));
 }
-

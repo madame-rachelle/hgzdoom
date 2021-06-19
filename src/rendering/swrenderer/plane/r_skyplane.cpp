@@ -24,7 +24,7 @@
 #include <float.h>
 #include "templates.h"
 
-#include "w_wad.h"
+#include "filesystem.h"
 #include "doomdef.h"
 #include "doomstat.h"
 #include "r_sky.h"
@@ -35,6 +35,7 @@
 #include "cmdlib.h"
 #include "d_net.h"
 #include "g_level.h"
+#include "texturemanager.h"
 #include "swrenderer/scene/r_opaque_pass.h"
 #include "r_skyplane.h"
 #include "swrenderer/scene/r_3dfloors.h"
@@ -50,21 +51,19 @@
 #include "swrenderer/scene/r_scene.h"
 #include "swrenderer/scene/r_light.h"
 #include "swrenderer/viewport/r_viewport.h"
-#include "swrenderer/r_memory.h"
+#include "r_memory.h"
 #include "swrenderer/r_renderthread.h"
 #include "g_levellocals.h"
 
 CVAR(Bool, r_linearsky, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 EXTERN_CVAR(Int, r_skymode)
+EXTERN_CVAR(Bool, cl_oldfreelooklimit)
 
 namespace swrenderer
 {
 	static FSoftwareTexture *GetSWTex(FTextureID texid, bool allownull = true)
 	{
-		auto tex = TexMan.GetPalettedTexture(texid, true);
-		if (tex == nullptr) return nullptr;
-		if (!allownull && !tex->isValid()) return nullptr;
-		return tex->GetSoftwareTexture();
+		return GetPalettedSWTexture(texid, true, false, true);
 	}
 
 	RenderSkyPlane::RenderSkyPlane(RenderThread *thread)
@@ -72,23 +71,22 @@ namespace swrenderer
 		Thread = thread;
 		auto Level = Thread->Viewport->Level();
 
-		auto skytex1 = TexMan.GetPalettedTexture(Level->skytexture1, true);
-		auto skytex2 = TexMan.GetPalettedTexture(Level->skytexture2, true);
+		auto sskytex1 = GetPalettedSWTexture(Level->skytexture1, true, false, true);
+		auto sskytex2 = GetPalettedSWTexture(Level->skytexture2, true, false, true);
 
-		if (skytex1 == nullptr)
+		if (sskytex1 == nullptr)
 			return;
 
-		FSoftwareTexture *sskytex1 = skytex1->GetSoftwareTexture();
-		FSoftwareTexture *sskytex2 = skytex2->GetSoftwareTexture();
 		skytexturemid = 0;
-		int skyheight = skytex1->GetDisplayHeight();
+		int skyheight = sskytex1->GetScaledHeight();
+		skyoffset = cl_oldfreelooklimit? 0 : skyheight == 256? 166 : skyheight >= 240? 150 : skyheight >= 200? 110 : 138;
 		if (skyheight >= 128 && skyheight < 200)
 		{
 			skytexturemid = -28;
 		}
-		else if (skyheight > 200)
+		else if (skyheight >= 200)
 		{
-			skytexturemid = (200 - skyheight) * sskytex1->GetScale().Y + ((r_skymode == 2 && !(Level->flags & LEVEL_FORCETILEDSKY)) ? skytex1->GetSkyOffset() : 0);
+			skytexturemid = (200 - skyheight) * sskytex1->GetScale().Y + ((r_skymode == 2 && !(Level->flags & LEVEL_FORCETILEDSKY)) ? sskytex1->GetSkyOffset() : 0);
 		}
 
 		if (viewwidth != 0 && viewheight != 0)
@@ -102,9 +100,9 @@ namespace swrenderer
 
 		if (Level->skystretch)
 		{
-			skyscale *= (double)SKYSTRETCH_HEIGHT / skyheight;
-			skyiscale *= skyheight / (float)SKYSTRETCH_HEIGHT;
-			skytexturemid *= skyheight / (double)SKYSTRETCH_HEIGHT;
+			skyscale *= (double)(SKYSTRETCH_HEIGHT + skyoffset) / skyheight;
+			skyiscale *= skyheight / (float)(SKYSTRETCH_HEIGHT + skyoffset);
+			skytexturemid *= skyheight / (double)(SKYSTRETCH_HEIGHT + skyoffset);
 		}
 
 		// The standard Doom sky texture is 256 pixels wide, repeated 4 times over 360 degrees,
@@ -204,7 +202,7 @@ namespace swrenderer
 				frontcyl = MAX(frontskytex->GetWidth(), frontxscale);
 				if (Level->skystretch)
 				{
-					skymid = skymid * frontskytex->GetScaledHeightDouble() / SKYSTRETCH_HEIGHT;
+					skymid = skymid * frontskytex->GetScaledHeight() / (SKYSTRETCH_HEIGHT + skyoffset);
 				}
 			}
 		}
@@ -216,11 +214,10 @@ namespace swrenderer
 
 		drawerargs.SetStyle();
 
-		Thread->PrepareTexture(frontskytex, DefaultRenderStyle());
-		Thread->PrepareTexture(backskytex, DefaultRenderStyle());
-
 		DrawSky(pl);
 	}
+
+	static uint32_t UMulScale16(uint32_t a, uint32_t b) { return (uint32_t)(((uint64_t)a * b) >> 16); }
 
 	void RenderSkyPlane::DrawSkyColumnStripe(int start_x, int y1, int y2, double scale, double texturemid, double yrepeat)
 	{
@@ -253,6 +250,8 @@ namespace swrenderer
 		angle1 = UMulScale16(ang, frontcyl) + frontpos;
 		angle2 = UMulScale16(ang, backcyl) + backpos;
 
+		auto skycapcolors = Thread->GetSkyCapColor(frontskytex);
+
 		drawerargs.SetFrontTexture(Thread, frontskytex, angle1);
 		drawerargs.SetBackTexture(Thread, backskytex, angle2);
 		drawerargs.SetTextureVStep(uv_step);
@@ -260,8 +259,8 @@ namespace swrenderer
 		drawerargs.SetDest(viewport, start_x, y1);
 		drawerargs.SetCount(y2 - y1);
 		drawerargs.SetFadeSky(r_skymode == 2 && !(Level->flags & LEVEL_FORCETILEDSKY));
-		drawerargs.SetSolidTop(frontskytex->GetSkyCapColor(false));
-		drawerargs.SetSolidBottom(frontskytex->GetSkyCapColor(true));
+		drawerargs.SetSolidTop(skycapcolors.first);
+		drawerargs.SetSolidBottom(skycapcolors.second);
 
 		if (!backskytex)
 			drawerargs.DrawSingleSkyColumn(Thread);
@@ -274,7 +273,7 @@ namespace swrenderer
 
 	void RenderSkyPlane::DrawSkyColumn(int start_x, int y1, int y2)
 	{
-		if (1 << frontskytex->GetHeightBits() == frontskytex->GetPhysicalHeight())
+		if (1 << frontskytex->GetHeightBits() >= frontskytex->GetPhysicalHeight())
 		{
 			double texturemid = skymid * frontskytex->GetScale().Y + frontskytex->GetHeight();
 			DrawSkyColumnStripe(start_x, y1, y2, frontskytex->GetScale().Y, texturemid, frontskytex->GetScale().Y);

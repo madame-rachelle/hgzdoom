@@ -49,6 +49,7 @@ class PlayerPawn : Actor
 	double		ViewBob;				// [SP] ViewBob Multiplier
 	double		FullHeight;
 	double		curBob;
+	double		prevBob;
 
 	meta Name HealingRadiusType;
 	meta Name InvulMode;
@@ -79,6 +80,7 @@ class PlayerPawn : Actor
 	flagdef NoThrustWhenInvul: PlayerFlags, 0;
 	flagdef CanSuperMorph: PlayerFlags, 1;
 	flagdef CrouchableMorph: PlayerFlags, 2;
+	flagdef WeaponLevel2Ended: PlayerFlags, 3;
 	
 	Default
 	{
@@ -136,6 +138,21 @@ class PlayerPawn : Actor
 		else
 		{
 			if (health > 0) Height = FullHeight;
+		}
+
+		if (bWeaponLevel2Ended)
+		{
+			bWeaponLevel2Ended = false;
+			if (player.ReadyWeapon != NULL && player.ReadyWeapon.bPowered_Up)
+			{
+				player.ReadyWeapon.EndPowerup ();
+			}
+			if (player.PendingWeapon != NULL && player.PendingWeapon != WP_NOCHANGE &&
+				player.PendingWeapon.bPowered_Up &&
+				player.PendingWeapon.SisterWeapon != NULL)
+			{
+				player.PendingWeapon = player.PendingWeapon.SisterWeapon;
+			}
 		}
 		Super.Tick();
 	}
@@ -927,6 +944,8 @@ class PlayerPawn : Actor
 	{
 		let player = self.player;
 
+		if (!player) return;
+
 		// [RH] Zoom the player's FOV
 		float desired = player.DesiredFOV;
 		// Adjust FOV using on the currently held weapon.
@@ -1392,7 +1411,7 @@ class PlayerPawn : Actor
 				Vel.Z += jumpvelz;
 				bOnMobj = false;
 				player.jumpTics = -1;
-				if (!(player.cheats & CF_PREDICTING)) A_PlaySound("*jump", CHAN_BODY);
+				if (!(player.cheats & CF_PREDICTING)) A_StartSound("*jump", CHAN_BODY);
 			}
 		}
 	}
@@ -1634,6 +1653,8 @@ class PlayerPawn : Actor
 			if (player.hazardcount)
 			{
 				player.hazardcount--;
+				if (player.hazardinterval <= 0)
+					player.hazardinterval = 32; // repair invalid hazardinterval
 				if (!(Level.maptime % player.hazardinterval) && player.hazardcount > 16*TICRATE)
 					player.mo.DamageMobj (NULL, NULL, 5, player.hazardtype);
 			}
@@ -1659,7 +1680,12 @@ class PlayerPawn : Actor
 		{
 			if (player.ReadyWeapon != null)
 			{
-				player.GetPSprite(PSP_WEAPON).y = WEAPONTOP;
+				let psp = player.GetPSprite(PSP_WEAPON);
+				if (psp) 
+				{
+					psp.y = WEAPONTOP;
+					player.ReadyWeapon.ResetPSprite(psp);
+				}
 				player.SetPsprite(PSP_WEAPON, player.ReadyWeapon.GetReadyState());
 			}
 			return;
@@ -1686,7 +1712,8 @@ class PlayerPawn : Actor
 			weapon.PlayUpSound(self);
 			player.refire = 0;
 
-			player.GetPSprite(PSP_WEAPON).y = player.cheats & CF_INSTANTWEAPSWITCH? WEAPONTOP : WEAPONBOTTOM;
+			let psp = player.GetPSprite(PSP_WEAPON);
+			if (psp) psp.y = player.cheats & CF_INSTANTWEAPSWITCH? WEAPONTOP : WEAPONBOTTOM;
 			// make sure that the previous weapon's flash state is terminated.
 			// When coming here from a weapon drop it may still be active.
 			player.SetPsprite(PSP_FLASH, null);
@@ -2012,7 +2039,7 @@ class PlayerPawn : Actor
 				next = item.Inv;
 				if (item.InterHubAmount < 1)
 				{
-					item.Destroy ();
+					item.DepleteOrDestroy ();
 				}
 				item = next;
 			}
@@ -2299,8 +2326,6 @@ class PlayerPawn : Actor
 		Vector2 p1, p2, r;
 		Vector2 result;
 
-		float bobtarget;
-
 		let player = self.player;
 		if (!player) return (0, 0);
 		let weapon = player.ReadyWeapon;
@@ -2324,17 +2349,16 @@ class PlayerPawn : Actor
 			// [RH] Smooth transitions between bobbing and not-bobbing frames.
 			// This also fixes the bug where you can "stick" a weapon off-center by
 			// shooting it when it's at the peak of its swing.
-			bobtarget = double((player.WeaponState & WF_WEAPONBOBBING) ? player.bob : 0.);
-			if (curbob != bobtarget)
+			if (curbob != player.bob)
 			{
-				if (abs(bobtarget - curbob) <= 1)
+				if (abs(player.bob - curbob) <= 1)
 				{
-					curbob = bobtarget;
+					curbob = player.bob;
 				}
 				else
 				{
-					double zoom = MAX(1., abs(curbob - bobtarget) / 40);
-					if (curbob > bobtarget)
+					double zoom = MAX(1., abs(curbob - player.bob) / 40);
+					if (curbob > player.bob)
 					{
 						curbob -= zoom;
 					}
@@ -2345,11 +2369,19 @@ class PlayerPawn : Actor
 				}
 			}
 
+			// The weapon bobbing intensity while firing can be adjusted by the player.
+			double BobIntensity = (player.WeaponState & WF_WEAPONBOBBING) ? 1. : player.GetWBobFire();
+
 			if (curbob != 0)
 			{
+				double bobVal = player.bob;
+				if (i == 0)
+				{
+					bobVal = prevBob;
+				}
 				//[SP] Added in decorate player.viewbob checks
-				double bobx = (player.bob * Rangex * ViewBob);
-				double boby = (player.bob * Rangey * ViewBob);
+				double bobx = (bobVal * BobIntensity * Rangex * ViewBob);
+				double boby = (bobVal * BobIntensity * Rangey * ViewBob);
 				switch (bobstyle)
 				{
 				case Bob_Normal:
@@ -2421,12 +2453,24 @@ class PlayerPawn : Actor
 
 		if (playgasp && wasdrowning)
 		{
-			A_PlaySound("*gasp", CHAN_VOICE);
+			A_StartSound("*gasp", CHAN_VOICE);
 		}
 		if (Level.airsupply > 0 && AirCapacity > 0) player.air_finished = Level.maptime + int(Level.airsupply * AirCapacity);
 		else player.air_finished = int.max;
 		return wasdrowning;
 	}
+
+	//===========================================================================
+	//
+	// PlayerPawn :: Travelled
+	//
+	// Called when the player moves to another map, in case it needs to do
+	// special reinitialization. This is called after all carried items have
+	// executed their respective Travelled() virtuals too.
+	//
+	//===========================================================================
+
+	virtual void Travelled() {}
 
 	//----------------------------------------------------------------------------
 	//
@@ -2534,16 +2578,29 @@ class PSprite : Object native play
 	native double y;
 	native double oldx;
 	native double oldy;
+	native Vector2 pivot;
+	native Vector2 scale;
+	native double rotation;
+	native int HAlign, VAlign;
+	native Vector2 Coord0;		// [MC] Not the actual coordinates. Just the offsets by A_OverlayVertexOffset.
+	native Vector2 Coord1;
+	native Vector2 Coord2;
+	native Vector2 Coord3;
 	native double alpha;
 	native Bool firstTic;
+	native bool InterpolateTic;
 	native int Tics;
+	native uint Translation;
 	native bool bAddWeapon;
 	native bool bAddBob;
 	native bool bPowDouble;
 	native bool bCVarFast;
 	native bool bFlip;	
 	native bool bMirror;
-	
+	native bool bPlayerTranslated;
+	native bool bPivotPercent;
+	native bool bInterpolate;
+
 	native void SetState(State newstate, bool pending = false);
 
 	//------------------------------------------------------------------------
@@ -2635,8 +2692,8 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 	native int killcount;
 	native int itemcount;
 	native int secretcount;
-	native int damagecount;
-	native int bonuscount;
+	native uint damagecount;
+	native uint bonuscount;
 	native int hazardcount;
 	native int hazardinterval;
 	native Name hazardtype;
@@ -2695,27 +2752,28 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 	native void SetSubtitleNumber (int text, Sound sound_id = 0);
 	native bool Resurrect();
 
-	native String GetUserName() const;
-	native Color GetColor() const;
-	native Color GetDisplayColor() const;
-	native int GetColorSet() const;
-	native int GetPlayerClassNum() const;
-	native int GetSkin() const;
-	native bool GetNeverSwitch() const;
-	native int GetGender() const;
-	native int GetTeam() const;
-	native float GetAutoaim() const;
-	native bool GetNoAutostartMap() const;
+	native clearscope String GetUserName() const;
+	native clearscope Color GetColor() const;
+	native clearscope Color GetDisplayColor() const;
+	native clearscope int GetColorSet() const;
+	native clearscope int GetPlayerClassNum() const;
+	native clearscope int GetSkin() const;
+	native clearscope bool GetNeverSwitch() const;
+	native clearscope int GetGender() const;
+	native clearscope int GetTeam() const;
+	native clearscope float GetAutoaim() const;
+	native clearscope bool GetNoAutostartMap() const;
 	native double GetWBobSpeed() const;
+	native double GetWBobFire() const;
 	native double GetMoveBob() const;
 	native double GetStillBob() const;
 	native void SetFOV(float fov);
-	native bool GetClassicFlight() const;
+	native clearscope bool GetClassicFlight() const;
 	native void SendPitchLimits();
 	native clearscope bool HasWeaponsInSlot(int slot) const;
 
 	// The actual implementation is on PlayerPawn where it can be overridden. Use that directly in the future.
-	deprecated("3.7") bool MorphPlayer(playerinfo p, Class<PlayerPawn> spawntype, int duration, int style, Class<Actor> enter_flash = null, Class<Actor> exit_flash = null)
+	deprecated("3.7", "MorphPlayer() should be used on a PlayerPawn object") bool MorphPlayer(playerinfo p, Class<PlayerPawn> spawntype, int duration, int style, Class<Actor> enter_flash = null, Class<Actor> exit_flash = null)
 	{
 		if (mo != null)
 		{
@@ -2725,7 +2783,7 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 	}
 	
 	// This somehow got its arguments mixed up. 'self' should have been the player to be unmorphed, not the activator
-	deprecated("3.7") bool UndoPlayerMorph(playerinfo player, int unmorphflag = 0, bool force = false)
+	deprecated("3.7", "UndoPlayerMorph() should be used on a PlayerPawn object") bool UndoPlayerMorph(playerinfo player, int unmorphflag = 0, bool force = false)
 	{
 		if (player.mo != null)
 		{
@@ -2734,7 +2792,7 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 		return false;
 	}
 
-	deprecated("3.7") void DropWeapon()
+	deprecated("3.7", "DropWeapon() should be used on a PlayerPawn object") void DropWeapon()
 	{
 		if (mo != null)
 		{
@@ -2742,12 +2800,12 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 		}
 	}
 
-	deprecated("3.7") void BringUpWeapon()
+	deprecated("3.7", "BringUpWeapon() should be used on a PlayerPawn object") void BringUpWeapon()
 	{
 		if (mo) mo.BringUpWeapon();
 	}
 	
-	bool IsTotallyFrozen()
+	clearscope bool IsTotallyFrozen() const
 	{
 		return
 			gamestate == GS_TITLELEVEL ||

@@ -19,14 +19,12 @@ EXTERN_CVAR(Float, transsouls);
 EXTERN_CVAR(Bool, r_dynlights);
 EXTERN_CVAR(Bool, r_fuzzscale);
 
-class DrawerCommandQueue;
-typedef std::shared_ptr<DrawerCommandQueue> DrawerCommandQueuePtr;
-
 namespace swrenderer
 {
 	class DrawerArgs;
 	class SkyDrawerArgs;
 	class WallDrawerArgs;
+	class WallColumnDrawerArgs;
 	class SpanDrawerArgs;
 	class SpriteDrawerArgs;
 	class VoxelBlock;
@@ -55,14 +53,14 @@ namespace swrenderer
 	class SWPixelFormatDrawers
 	{
 	public:
-		SWPixelFormatDrawers(DrawerCommandQueuePtr queue) : Queue(queue) { }
-		virtual ~SWPixelFormatDrawers() { }
-		virtual void DrawWallColumn(const WallDrawerArgs &args) = 0;
-		virtual void DrawWallMaskedColumn(const WallDrawerArgs &args) = 0;
-		virtual void DrawWallAddColumn(const WallDrawerArgs &args) = 0;
-		virtual void DrawWallAddClampColumn(const WallDrawerArgs &args) = 0;
-		virtual void DrawWallSubClampColumn(const WallDrawerArgs &args) = 0;
-		virtual void DrawWallRevSubClampColumn(const WallDrawerArgs &args) = 0;
+		SWPixelFormatDrawers(RenderThread* thread) : thread(thread) { }
+		virtual ~SWPixelFormatDrawers() = default;
+		virtual void DrawWall(const WallDrawerArgs &args) = 0;
+		virtual void DrawWallMasked(const WallDrawerArgs &args) = 0;
+		virtual void DrawWallAdd(const WallDrawerArgs &args) = 0;
+		virtual void DrawWallAddClamp(const WallDrawerArgs &args) = 0;
+		virtual void DrawWallSubClamp(const WallDrawerArgs &args) = 0;
+		virtual void DrawWallRevSubClamp(const WallDrawerArgs &args) = 0;
 		virtual void DrawSingleSkyColumn(const SkyDrawerArgs &args) = 0;
 		virtual void DrawDoubleSkyColumn(const SkyDrawerArgs &args) = 0;
 		virtual void DrawColumn(const SpriteDrawerArgs &args) = 0;
@@ -94,12 +92,15 @@ namespace swrenderer
 		virtual void DrawTiltedSpan(const SpanDrawerArgs &args, const FVector3 &plane_sz, const FVector3 &plane_su, const FVector3 &plane_sv, bool plane_shade, int planeshade, float planelightfloat, fixed_t pviewx, fixed_t pviewy, FDynamicColormap *basecolormap) = 0;
 		virtual void DrawColoredSpan(const SpanDrawerArgs &args) = 0;
 		virtual void DrawFogBoundaryLine(const SpanDrawerArgs &args) = 0;
+		virtual void DrawParticleColumn(int x, int yl, int ycount, uint32_t fg, uint32_t alpha, uint32_t fracposx) = 0;
 
+		void DrawDepthColumn(const WallColumnDrawerArgs& args, float idepth);
 		void DrawDepthSkyColumn(const SkyDrawerArgs &args, float idepth);
-		void DrawDepthWallColumn(const WallDrawerArgs &args, float idepth);
 		void DrawDepthSpan(const SpanDrawerArgs &args, float idepth1, float idepth2);
-		
-		DrawerCommandQueuePtr Queue;
+
+		void SetLights(WallColumnDrawerArgs& drawerargs, int x, int y1, const WallDrawerArgs& wallargs);
+
+		RenderThread* thread = nullptr;
 	};
 
 	void R_InitShadeMaps();

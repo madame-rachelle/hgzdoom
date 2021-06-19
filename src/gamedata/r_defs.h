@@ -34,6 +34,9 @@
 #include "templates.h"
 #include "m_bbox.h"
 #include "dobjgc.h"
+#include "r_data/r_translate.h"
+#include "texmanip.h"
+#include "fcolormap.h"
 
 // Some more or less basic data types
 // we depend on.
@@ -53,9 +56,6 @@ struct sector_t;
 class AActor;
 struct FSection;
 struct FLevelLocals;
-
-#define MAXWIDTH 12000
-#define MAXHEIGHT 5000
 
 const uint16_t NO_INDEX = 0xffffu;
 const uint32_t NO_SIDE = 0xffffffffu;
@@ -484,6 +484,7 @@ enum
 	SECMF_DRAWN				= 128,	// sector has been drawn at least once
 	SECMF_HIDDEN			= 256,	// Do not draw on textured automap
 	SECMF_OVERLAPPING		= 512,	// floor and ceiling overlap and require special renderer action.
+	SECMF_NOSKYWALLS		= 1024,	// Do not draw "sky walls"
 };
 
 enum
@@ -519,8 +520,8 @@ struct FDynamicColormap;
 
 struct FLinkedSector
 {
-	sector_t *Sector;
-	int Type;
+	sector_t *Sector = nullptr;
+	int Type = 0;
 };
 
 
@@ -645,6 +646,7 @@ struct sector_t
 		PalEntry GlowColor;
 		float GlowHeight;
 		FTextureID Texture;
+		TextureManipulation TextureFx;
 	};
 
 
@@ -663,6 +665,7 @@ struct sector_t
 
 	PalEntry SpecialColors[5];				// Doom64 style colors
 	PalEntry AdditiveColors[5];
+
 	FColormap Colormap;						// Sector's own color/fog info.
 
 	short		special;					// map-defined sector special type
@@ -1027,22 +1030,42 @@ public:
 		Flags &= ~SECF_SPECIALFLAGS;
 	}
 
+	void CheckExColorFlag();
+
+	void InitAllExcolors()
+	{
+		if (SpecialColors[sector_t::wallbottom] != 0xffffffff || SpecialColors[sector_t::walltop] != 0xffffffff || AdditiveColors[sector_t::walltop] != 0xffffffff) CheckExColorFlag();
+	}
+
 	void SetSpecialColor(int slot, int r, int g, int b)
 	{
 		SpecialColors[slot] = PalEntry(255, r, g, b);
+		if ((slot == sector_t::wallbottom || slot == sector_t::walltop) && SpecialColors[slot] != 0xffffffff) CheckExColorFlag();
 	}
 
 	void SetSpecialColor(int slot, PalEntry rgb)
 	{
 		rgb.a = 255;
 		SpecialColors[slot] = rgb;
+		if ((slot == sector_t::wallbottom || slot == sector_t::walltop) && rgb != 0xffffffff) CheckExColorFlag();
 	}
 
 	void SetAdditiveColor(int slot, PalEntry rgb)
 	{
 		rgb.a = 255;
 		AdditiveColors[slot] = rgb;
+		if ((slot == sector_t::walltop) && AdditiveColors[slot] != 0xffffffff) CheckExColorFlag(); // Wallbottom of this is not used.
+
 	}
+
+	// TextureFX parameters
+
+	void SetTextureFx(int slot, const TextureManipulation *tm)
+	{
+		if (tm) planes[slot].TextureFx = *tm;	// this is for getting the data from a texture.
+		else planes[slot].TextureFx = {};
+	}
+
 
 	inline bool PortalBlocksView(int plane);
 	inline bool PortalBlocksSight(int plane);
@@ -1128,6 +1151,7 @@ enum
 	WALLF_WRAP_MIDTEX	 = 32,	// Like the line counterpart, but only for this side.
 	WALLF_POLYOBJ		 = 64,	// This wall belongs to a polyobject.
 	WALLF_LIGHT_FOG      = 128,	// This wall's Light is used even in fog.
+	WALLF_EXTCOLOR		 = 256,	// enables the extended color options (flagged to allow the renderer to easily skip the relevant code)
 };
 
 struct side_t
@@ -1159,10 +1183,12 @@ struct side_t
 		double xScale;
 		double yScale;
 		TObjPtr<DInterpolation*> interpolation;
-		FTextureID texture;
 		int flags;
+		FTextureID texture;
+		TextureManipulation TextureFx;
 		PalEntry SpecialColors[2];
 		PalEntry AdditiveColor;
+
 
 		void InitFrom(const part &other)
 		{
@@ -1172,6 +1198,7 @@ struct side_t
 			if (1.0 == xScale && 0.0 != other.xScale) xScale = other.xScale;
 			if (1.0 == yScale && 0.0 != other.yScale) yScale = other.yScale;
 		}
+
 	};
 
 	sector_t*	sector;			// Sector the SideDef is facing.
@@ -1181,7 +1208,7 @@ struct side_t
 	uint32_t	LeftSide, RightSide;	// [RH] Group walls into loops
 	uint16_t	TexelLength;
 	int16_t		Light;
-	uint8_t		Flags;
+	uint16_t	Flags;
 	int			UDMFIndex;		// needed to access custom UDMF fields which are stored in loading order.
 	FLightNode * lighthead;		// all dynamic lights that may affect this wall
 	seg_t **segs;	// all segs belonging to this sidedef in ascending order. Used for precise rendering
@@ -1293,15 +1320,32 @@ struct side_t
 		textures[which].yScale *= delta;
 	}
 
-	void SetSpecialColor(int which, int slot, int r, int g, int b)
+	int GetTextureFlags(int which)
 	{
-		textures[which].SpecialColors[slot] = PalEntry(255, r, g, b);
+		return textures[which].flags;
 	}
 
-	void SetSpecialColor(int which, int slot, PalEntry rgb)
+	void ChangeTextureFlags(int which, int And, int Or)
+	{
+		textures[which].flags &= ~And;
+		textures[which].flags |= Or;
+	}
+
+	void SetSpecialColor(int which, int slot, int r, int g, int b, bool useown = true)
+	{
+		textures[which].SpecialColors[slot] = PalEntry(255, r, g, b);
+		if (useown) textures[which].flags |= part::UseOwnSpecialColors;
+		else  textures[which].flags &= ~part::UseOwnSpecialColors;
+		Flags |= WALLF_EXTCOLOR;
+	}
+
+	void SetSpecialColor(int which, int slot, PalEntry rgb, bool useown = true)
 	{
 		rgb.a = 255;
 		textures[which].SpecialColors[slot] = rgb;
+		if (useown) textures[which].flags |= part::UseOwnSpecialColors;
+		else  textures[which].flags &= ~part::UseOwnSpecialColors;
+		Flags |= WALLF_EXTCOLOR;
 	}
 
 	// Note that the sector being passed in here may not be the actual sector this sidedef belongs to
@@ -1316,10 +1360,11 @@ struct side_t
 
 	void EnableAdditiveColor(int which, bool enable)
 	{
-		int flag = enable ? part::UseOwnAdditiveColor : 0;
+		const int flag = part::UseOwnAdditiveColor;
 		if (enable)
 		{
 			textures[which].flags |= flag;
+			Flags |= WALLF_EXTCOLOR;
 		}
 		else
 		{
@@ -1333,6 +1378,19 @@ struct side_t
 		textures[which].AdditiveColor = rgb;
 	}
 
+	void SetTextureFx(int slot, const TextureManipulation* tm)
+	{
+		if (tm)
+		{
+			textures[slot].TextureFx = *tm;	// this is for getting the data from a texture.
+			if (tm->AddColor.a) Flags |= WALLF_EXTCOLOR;
+		}
+		else
+		{
+			textures[slot].TextureFx = {};
+		}
+	}
+
 	PalEntry GetAdditiveColor(int which, sector_t *frontsector) const
 	{
 		if (textures[which].flags & part::UseOwnAdditiveColor) {
@@ -1343,6 +1401,7 @@ struct side_t
 			return frontsector->AdditiveColors[sector_t::walltop]; // Used as additive color for all walls
 		}
 	}
+
 
 	DInterpolation *SetInterpolation(int position);
 	void StopInterpolation(int position);
@@ -1607,21 +1666,21 @@ typedef uint8_t lighttable_t;	// This could be wider for >8 bit display.
 //
 //----------------------------------------------------------------------------------
 
-inline bool FBoundingBox::inRange(const line_t *ld) const
+inline bool inRange(const FBoundingBox &box, const line_t *ld)
 {
-	return Left() < ld->bbox[BOXRIGHT] &&
-		Right() > ld->bbox[BOXLEFT] &&
-		Top() > ld->bbox[BOXBOTTOM] &&
-		Bottom() < ld->bbox[BOXTOP];
+	return box.Left() < ld->bbox[BOXRIGHT] &&
+		box.Right() > ld->bbox[BOXLEFT] &&
+		box.Top() > ld->bbox[BOXBOTTOM] &&
+		box.Bottom() < ld->bbox[BOXTOP];
 }
 
 
-inline void FColormap::CopyFrom3DLight(lightlist_t *light)
+inline void CopyFrom3DLight(FColormap &cm, lightlist_t *light)
 {
-	CopyLight(light->extra_colormap);
+	cm.CopyLight(light->extra_colormap);
 	if (light->caster && (light->caster->flags&FF_FADEWALLS) && light->extra_colormap.FadeColor != 0)
 	{
-		CopyFog(light->extra_colormap);
+		cm.CopyFog(light->extra_colormap);
 	}
 }
 
@@ -1676,6 +1735,16 @@ inline void sector_t::SetFade(PalEntry pe) { ::SetFade(this, pe); }
 inline int sector_t::GetFloorLight() const { return ::GetFloorLight(this); }
 inline int sector_t::GetCeilingLight() const { return ::GetCeilingLight(this); }
 inline double sector_t::GetFriction(int plane, double *movefac) const { return ::GetFriction(this, plane, movefac); }
+
+inline void sector_t::CheckExColorFlag()
+{
+	for (auto ld : Lines)
+	{
+		if (ld->frontsector == this) ld->sidedef[0]->Flags |= WALLF_EXTCOLOR;
+		if (ld->backsector == this) ld->sidedef[1]->Flags |= WALLF_EXTCOLOR;
+	}
+}
+
 
 
 #endif

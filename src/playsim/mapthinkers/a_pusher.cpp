@@ -30,6 +30,7 @@
 #include "actor.h"
 #include "p_spec.h"
 #include "serializer.h"
+#include "serialize_obj.h"
 #include "p_lnspec.h"
 #include "p_maputl.h"
 #include "p_local.h"
@@ -271,13 +272,13 @@ void DPusher::Tick ()
 				{
 					pushvel = m_PushVec; // full force
 				}
-				else if (thing->player->viewz < ht) // underwater
+				else if (thing->player && thing->player->viewz < ht) // underwater
 				{
 					pushvel.Zero(); // no force
 				}
 				else // wading in water
 				{
-					pushvel = m_PushVec / 2; // full force
+					pushvel = m_PushVec / 2; // half force
 				}
 			}
 		}

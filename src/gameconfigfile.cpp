@@ -47,6 +47,7 @@
 #include "doomstat.h"
 #include "gi.h"
 #include "d_main.h"
+#include "v_video.h"
 #if !defined _MSC_VER && !defined __APPLE__
 #include "i_system.h"  // for SHARE_DIR
 #endif // !_MSC_VER && !__APPLE__
@@ -61,10 +62,21 @@ EXTERN_CVAR (Bool, snd_pitched)
 EXTERN_CVAR (Color, am_wallcolor)
 EXTERN_CVAR (Color, am_fdwallcolor)
 EXTERN_CVAR (Color, am_cdwallcolor)
-EXTERN_CVAR (Float, spc_amp)
 EXTERN_CVAR (Bool, wi_percents)
 EXTERN_CVAR (Int, gl_texture_hqresizemode)
 EXTERN_CVAR (Int, gl_texture_hqresizemult)
+EXTERN_CVAR (Int, vid_preferbackend)
+EXTERN_CVAR (Float, vid_scale_custompixelaspect)
+EXTERN_CVAR (Bool, vid_scale_linear)
+EXTERN_CVAR(Float, m_sensitivity_x)
+EXTERN_CVAR(Float, m_sensitivity_y)
+EXTERN_CVAR(Int, adl_volume_model)
+EXTERN_CVAR (Int, gl_texture_hqresize_targets)
+EXTERN_CVAR(Int, wipetype)
+
+#ifdef _WIN32
+EXTERN_CVAR(Int, in_mouse)
+#endif
 
 FGameConfigFile::FGameConfigFile ()
 {
@@ -75,7 +87,7 @@ FGameConfigFile::FGameConfigFile ()
 
 	FString pathname;
 
-	OkayToWrite = false;	// Do not allow saving of the config before DoGameSetup()
+	OkayToWrite = false;	// Do not allow saving of the config before DoKeySetup()
 	bModSetup = false;
 	pathname = GetConfigPath (true);
 	ChangePathName (pathname);
@@ -292,45 +304,6 @@ void FGameConfigFile::DoGlobalSetup ()
 		if (lastver != NULL)
 		{
 			double last = atof (lastver);
-			if (last < 123.1)
-			{
-				FBaseCVar *noblitter = FindCVar ("vid_noblitter", NULL);
-				if (noblitter != NULL)
-				{
-					noblitter->ResetToDefault ();
-				}
-			}
-			if (last < 202)
-			{
-				// Make sure the Hexen hotkeys are accessible by default.
-				if (SetSection ("Hexen.Bindings"))
-				{
-					SetValueForKey ("\\", "use ArtiHealth");
-					SetValueForKey ("scroll", "+showscores");
-					SetValueForKey ("0", "useflechette");
-					SetValueForKey ("9", "use ArtiBlastRadius");
-					SetValueForKey ("8", "use ArtiTeleport");
-					SetValueForKey ("7", "use ArtiTeleportOther");
-					SetValueForKey ("6", "use ArtiPork");
-					SetValueForKey ("5", "use ArtiInvulnerability2");
-				}
-			}
-			if (last < 204)
-			{ // The old default for vsync was true, but with an unlimited framerate
-			  // now, false is a better default.
-				FBaseCVar *vsync = FindCVar ("vid_vsync", NULL);
-				if (vsync != NULL)
-				{
-					vsync->ResetToDefault ();
-				}
-			}
-			if (last < 206)
-			{ // spc_amp is now a float, not an int.
-				if (spc_amp > 16)
-				{
-					spc_amp = spc_amp / 16.f;
-				}
-			}
 			if (last < 207)
 			{ // Now that snd_midiprecache works again, you probably don't want it on.
 				FBaseCVar *precache = FindCVar ("snd_midiprecache", NULL);
@@ -501,11 +474,117 @@ void FGameConfigFile::DoGlobalSetup ()
 			{
 				auto var = FindCVar("vid_scalemode", NULL);
 				UCVarValue newvalue;
-				newvalue.Int = 2;
 				if (var != NULL)
 				{
 					UCVarValue v = var->GetGenericRep(CVAR_Int);
-					if (v.Int == 3) var->SetGenericRep(newvalue, CVAR_Int);
+					if (v.Int == 3) // 640x400
+					{
+						newvalue.Int = 2;
+						var->SetGenericRep(newvalue, CVAR_Int);
+					}
+					if (v.Int == 2) // 320x200
+					{
+						newvalue.Int = 6;
+						var->SetGenericRep(newvalue, CVAR_Int);
+					}
+				}
+			}
+			if (last < 219)
+			{
+				// 2019-12-06 - polybackend merge
+				// migrate vid_enablevulkan to vid_preferbackend
+				auto var = FindCVar("vid_enablevulkan", NULL);
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Int);
+					vid_preferbackend = v.Int;
+				}
+				// 2019-12-31 - r_videoscale.cpp changes
+				var = FindCVar("vid_scale_customstretched", NULL);
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Bool);
+					if (v.Bool)
+						vid_scale_custompixelaspect = 1.2f;
+					else
+						vid_scale_custompixelaspect = 1.0f;
+				}
+				var = FindCVar("vid_scalemode", NULL);
+				UCVarValue newvalue;
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Int);
+					switch (v.Int)
+					{
+					case 1:
+						newvalue.Int = 0;
+						var->SetGenericRep(newvalue, CVAR_Int);
+						[[fallthrough]];
+					case 3:
+					case 4:
+						vid_scale_linear = true;
+						break;
+					default:
+						vid_scale_linear = false;
+						break;
+					}
+				}
+			}
+			if (last < 220)
+			{
+				auto var = FindCVar("Gamma", NULL);
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Float);
+					vid_gamma = v.Float;
+				}
+				var = FindCVar("fullscreen", NULL);
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Bool);
+					vid_fullscreen = v.Float;
+				}
+			}
+			if (last < 221)
+			{
+				// Transfer the messed up mouse scaling config to something sane and consistent.
+#ifndef _WIN32
+				double xfact = 3, yfact = 2;
+#else
+				double xfact = in_mouse == 1? 1.5 : 4, yfact = 1;
+#endif
+				auto var = FindCVar("m_noprescale", NULL);
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Bool);
+					if (v.Bool) xfact = yfact = 1;
+				}
+
+				var = FindCVar("mouse_sensitivity", NULL);
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Float);
+					xfact *= v.Float;
+					yfact *= v.Float;
+				}
+				m_sensitivity_x = (float)xfact;
+				m_sensitivity_y = (float)yfact;
+
+				adl_volume_model = 0;
+
+				// if user originally wanted the in-game textures resized, set model skins to resize too
+				int old_targets = gl_texture_hqresize_targets;
+				old_targets |= (old_targets & 1) ? 8 : 0;
+				gl_texture_hqresize_targets = old_targets;
+			}
+			if (last < 222)
+			{
+				auto var = FindCVar("mod_dumb_mastervolume", NULL);
+				if (var != NULL)
+				{
+					UCVarValue v = var->GetGenericRep(CVAR_Float);
+					v.Float /= 4.f;
+					if (v.Float < 1.f) v.Float = 1.f;
 				}
 			}
 		}
@@ -527,6 +606,12 @@ void FGameConfigFile::DoGameSetup (const char *gamename)
 		ReadCVars (0);
 	}
 
+	strncpy (subsection, "ConfigOnlyVariables", sublen);
+	if (SetSection (section))
+	{
+		ReadCVars (0);
+	}
+
 	strncpy (subsection, "ConsoleVariables", sublen);
 	if (SetSection (section))
 	{
@@ -536,6 +621,11 @@ void FGameConfigFile::DoGameSetup (const char *gamename)
 	if (gameinfo.gametype & GAME_Raven)
 	{
 		SetRavenDefaults (gameinfo.gametype == GAME_Hexen);
+	}
+
+	if (gameinfo.gametype & GAME_Strife)
+	{
+		SetStrifeDefaults ();
 	}
 
 	// The NetServerInfo section will be read and override anything loaded
@@ -569,7 +659,6 @@ void FGameConfigFile::DoGameSetup (const char *gamename)
 			}
 		}
 	}
-	OkayToWrite = true;
 }
 
 // Moved from DoGameSetup so that it can happen after wads are loaded
@@ -603,6 +692,7 @@ void FGameConfigFile::DoKeySetup(const char *gamename)
 			}
 		}
 	}
+	OkayToWrite = true;
 }
 
 // Like DoGameSetup(), but for mod-specific cvars.
@@ -618,6 +708,11 @@ void FGameConfigFile::DoModSetup(const char *gamename)
 	if (SetSection (section))
 	{
 		ReadCVars (CVAR_MOD|CVAR_SERVERINFO|CVAR_IGNORE);
+	}
+	mysnprintf(section, countof(section), "%s.ConfigOnlyVariables.Mod", gamename);
+	if (SetSection (section))
+	{
+		ReadCVars (CVAR_MOD|CVAR_CONFIG_ONLY|CVAR_IGNORE);
 	}
 	// Signal that these sections should be rewritten when saving the config.
 	bModSetup = true;
@@ -702,6 +797,19 @@ void FGameConfigFile::ArchiveGameData (const char *gamename)
 			ClearCurrentSection ();
 			C_ArchiveCVars (this, CVAR_MOD|CVAR_ARCHIVE|CVAR_AUTO|CVAR_SERVERINFO);
 		}
+	}
+
+	strncpy (subsection, "ConfigOnlyVariables", sublen);
+	SetSection (section, true);
+	ClearCurrentSection ();
+	C_ArchiveCVars (this, CVAR_ARCHIVE|CVAR_AUTO|CVAR_CONFIG_ONLY);
+
+	if (bModSetup)
+	{
+		strncpy (subsection, "ConfigOnlyVariables.Mod", sublen);
+		SetSection (section, true);
+		ClearCurrentSection ();
+		C_ArchiveCVars (this, CVAR_ARCHIVE|CVAR_AUTO|CVAR_MOD|CVAR_CONFIG_ONLY);
 	}
 
 	strncpy (subsection, "UnknownConsoleVariables", sublen);
@@ -821,6 +929,9 @@ void FGameConfigFile::SetRavenDefaults (bool isHexen)
 	val.Int = 0x734323;
 	am_cdwallcolor.SetGenericRepDefault (val, CVAR_Int);
 
+	val.Int = 0;
+	wipetype.SetGenericRepDefault(val, CVAR_Int);
+
 	// Fix the Heretic/Hexen automap colors so they are correct.
 	// (They were wrong on older versions.)
 	if (*am_wallcolor == 0x2c1808 && *am_fdwallcolor == 0x887058 && *am_cdwallcolor == 0x4c3820)
@@ -835,6 +946,13 @@ void FGameConfigFile::SetRavenDefaults (bool isHexen)
 		val.Int = 0x3f6040;
 		color.SetGenericRepDefault (val, CVAR_Int);
 	}
+}
+
+void FGameConfigFile::SetStrifeDefaults ()
+{
+	UCVarValue val;
+	val.Int = 3;
+	wipetype.SetGenericRepDefault(val, CVAR_Int);
 }
 
 CCMD (whereisini)

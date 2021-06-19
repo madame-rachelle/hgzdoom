@@ -1,8 +1,11 @@
 #ifndef _PORTALS_H_
 #define _PORTALS_H_
 
-#include "basictypes.h"
+#include "basics.h"
 #include "m_bbox.h"
+
+struct line_t;
+struct sector_t;
 
 struct FPortalGroupArray;
 struct portnode_t;
@@ -190,6 +193,11 @@ struct FLinePortal
 	double mCosRot;
 	portnode_t *lineportal_thinglist;
 	FLinePortalSpan *mGroup;
+
+	FLinePortal()
+	{
+		memset(this, 0, sizeof *this);
+	}
 };
 
 struct FLinePortalSpan
@@ -234,6 +242,11 @@ struct FSectorPortal
 	DVector2 mDisplacement;
 	double mPlaneZ;
 	TObjPtr<AActor*> mSkybox;
+
+	FSectorPortal()
+	{
+		memset(this, 0, sizeof * this);
+	}
 
 	bool MergeAllowed() const
 	{

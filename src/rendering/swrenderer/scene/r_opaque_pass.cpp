@@ -34,9 +34,10 @@
 
 #include "m_bbox.h"
 
-#include "doomerrors.h"
+#include "engineerrors.h"
 #include "p_lnspec.h"
 #include "p_setup.h"
+#include "texturemanager.h"
 
 #include "swrenderer/drawers/r_draw.h"
 #include "swrenderer/plane/r_visibleplane.h"
@@ -77,6 +78,8 @@ EXTERN_CVAR(Bool, r_debug_disable_vis_filter);
 extern uint32_t r_renderercaps;
 
 double model_distance_cull = 1e16;
+
+EXTERN_CVAR(Float, r_actorspriteshadowdist)
 
 namespace
 {
@@ -399,7 +402,7 @@ namespace swrenderer
 			double t = -rx1;
 			rx1 = -rx2;
 			rx2 = t;
-			swapvalues(ry1, ry2);
+			std::swap(ry1, ry2);
 		}
 		
 		auto viewport = Thread->Viewport.get();
@@ -950,7 +953,8 @@ namespace swrenderer
 					{
 						thinglightlevel = thing->Sector->GetTexture(sector_t::ceiling) == skyflatnum ? thing->Sector->GetCeilingLight() : thing->Sector->GetFloorLight();
 						auto nc = !!(thing->Level->flags3 & LEVEL3_NOCOLOREDSPRITELIGHTING);
-						thingColormap = GetSpriteColorTable(thing->Sector->Colormap, thing->Sector->SpecialColors[sector_t::sprites], nc);					}
+						thingColormap = GetSpriteColorTable(thing->Sector->Colormap, thing->Sector->SpecialColors[sector_t::sprites], nc);					
+					}
 
 					if ((sprite.renderflags & RF_SPRITETYPEMASK) == RF_WALLSPRITE)
 					{
@@ -963,6 +967,25 @@ namespace swrenderer
 					else
 					{
 						RenderSprite::Project(Thread, thing, sprite.pos, sprite.tex, sprite.spriteScale, sprite.renderflags, fakeside, fakefloor, fakeceiling, sec, thinglightlevel, foggy, thingColormap);
+
+						// [Nash] draw sprite shadow
+						if (R_ShouldDrawSpriteShadow(thing))
+						{
+							double dist = (thing->Pos() - Thread->Viewport->viewpoint.Pos).LengthSquared();
+							double distCheck = r_actorspriteshadowdist;
+							if (dist <= distCheck * distCheck)
+							{
+								// squash Y scale
+								DVector2 shadowScale = sprite.spriteScale;
+								shadowScale.Y *= 0.15;
+
+								// snap to floor Z
+								DVector3 shadowPos = sprite.pos;
+								shadowPos.Z = thing->floorz;
+
+								RenderSprite::Project(Thread, thing, shadowPos, sprite.tex, shadowScale, sprite.renderflags, fakeside, fakefloor, fakeceiling, sec, thinglightlevel, foggy, thingColormap, true);
+							}
+						}
 					}
 				}
 			}
@@ -1002,9 +1025,9 @@ namespace swrenderer
 
 	bool RenderOpaquePass::GetThingSprite(AActor *thing, ThingSprite &sprite)
 	{
+		// The X offsetting (SpriteOffset.X) is performed in r_sprite.cpp, in RenderSprite::Project().
 		sprite.pos = thing->InterpolatedPosition(Thread->Viewport->viewpoint.TicFrac);
-		sprite.pos.Z += thing->GetBobOffset(Thread->Viewport->viewpoint.TicFrac);
-
+		sprite.pos.Z += thing->GetBobOffset(Thread->Viewport->viewpoint.TicFrac) - thing->SpriteOffset.Y;
 		sprite.spritenum = thing->sprite;
 		sprite.tex = nullptr;
 		sprite.voxel = nullptr;
@@ -1020,11 +1043,8 @@ namespace swrenderer
 		{
 			sprite.picnum = thing->picnum;
 
-			sprite.tex = TexMan.GetPalettedTexture(sprite.picnum, true);
-			if (!sprite.tex->isValid())
-			{
-				return false;
-			}
+			sprite.tex = GetPalettedSWTexture(sprite.picnum, true);
+			if (!sprite.tex) return false;
 
 			if (sprite.tex->GetRotations() != 0xFFFF)
 			{
@@ -1051,7 +1071,8 @@ namespace swrenderer
 				{
 					sprite.renderflags ^= RF_XFLIP;
 				}
-				sprite.tex = TexMan.GetPalettedTexture(sprite.picnum, false);	// Do not animate the rotation
+				sprite.tex = GetPalettedSWTexture(sprite.picnum, false);	// Do not animate the rotation
+				if (!sprite.tex) return false;
 			}
 		}
 		else
@@ -1081,7 +1102,7 @@ namespace swrenderer
 					{
 						sprite.renderflags ^= RF_XFLIP;
 					}
-					sprite.tex = TexMan.GetPalettedTexture(tex, false);	// Do not animate the rotation
+					sprite.tex = GetPalettedSWTexture(tex, false);	// Do not animate the rotation
 				}
 
 				if (r_drawvoxels)
@@ -1093,7 +1114,7 @@ namespace swrenderer
 					return false;
 			}
 
-			if (sprite.voxel == nullptr && (sprite.tex == nullptr || !sprite.tex->isValid()))
+			if (sprite.voxel == nullptr && sprite.tex == nullptr)
 			{
 				return false;
 			}

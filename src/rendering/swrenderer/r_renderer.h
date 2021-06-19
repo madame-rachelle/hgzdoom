@@ -7,7 +7,6 @@ struct FRenderer;
 extern FRenderer *SWRenderer;
 
 class FSerializer;
-class FTexture;
 class AActor;
 class player_t;
 struct sector_t;
@@ -15,6 +14,7 @@ class FCanvasTexture;
 class FileWriter;
 class DCanvas;
 struct FLevelLocals;
+class PClassActor;
 
 struct FRenderer
 {

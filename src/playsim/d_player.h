@@ -148,7 +148,7 @@ enum
 // The VM cannot deal with this as an invalid pointer because it performs a read barrier on every object pointer read.
 // This doesn't have to point to a valid weapon, though, because WP_NOCHANGE is never dereferenced, but it must point to a valid object
 // and the class descriptor just works fine for that.
-extern AActor *WP_NOCHANGE;
+extern DObject *WP_NOCHANGE;
 
 
 // [GRB] Custom player classes
@@ -231,6 +231,10 @@ struct userinfo_t : TMap<FName,FBaseCVar *>
 	float GetWBobSpeed() const
 	{
 		return *static_cast<FFloatCVar *>(*CheckKey(NAME_WBobSpeed));
+	}
+	double GetWBobFire() const
+	{
+		return *static_cast<FFloatCVar *>(*CheckKey(NAME_WBobFire));
 	}
 	int GetPlayerClassNum() const
 	{
@@ -344,7 +348,7 @@ public:
 	short		inconsistant = 0;
 	bool		waiting = 0;
 	int			killcount = 0, itemcount = 0, secretcount = 0;		// for intermission
-	int			damagecount = 0, bonuscount = 0;// for screen flashing
+	uint32_t	damagecount = 0, bonuscount = 0;// for screen flashing
 	int			hazardcount = 0;			// for delayed Strife damage
 	int			hazardinterval = 0;			// Frequency of damage infliction
 	FName		hazardtype = NAME_None;				// Damage type of last hazardous damage encounter.
@@ -414,7 +418,6 @@ public:
 	{
 		return mo->FloatVar(NAME_ViewHeight);
 	}
-
 
 	void Uncrouch()
 	{

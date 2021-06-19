@@ -43,6 +43,7 @@
 #include "p_spec.h"
 #include "g_levellocals.h"
 #include "actor.h"
+#include "texturemanager.h"
 
 
 //============================================================================
@@ -230,7 +231,7 @@ bool P_GetMidTexturePosition(const line_t *line, int sideno, double *ptextop, do
 	side_t *side = line->sidedef[sideno];
 	FTextureID texnum = side->GetTexture(side_t::mid);
 	if (!texnum.isValid()) return false;
-	FTexture * tex= TexMan.GetTexture(texnum, true);
+	FGameTexture * tex= TexMan.GetGameTexture(texnum, true);
 	if (!tex) return false;
 
 	FTexCoordInfo tci;

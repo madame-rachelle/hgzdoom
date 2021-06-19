@@ -175,7 +175,7 @@ void FLinePortalTraverse::AddLineIntercepts(int bx, int by)
 //
 //============================================================================
 
-line_t *FLevelLocals::FindPortalDestination(line_t *src, int tag)
+line_t *FLevelLocals::FindPortalDestination(line_t *src, int tag, int matchtype)
 {
 	if (tag)
 	{
@@ -184,7 +184,7 @@ line_t *FLevelLocals::FindPortalDestination(line_t *src, int tag)
 
 		while ((lineno = it.Next()) >= 0)
 		{
-			if (&lines[lineno] != src)
+			if (&lines[lineno] != src && (matchtype == -1 || matchtype == lines[lineno].special))
 			{
 				return &lines[lineno];
 			}
@@ -540,7 +540,6 @@ unsigned FLevelLocals::GetSkyboxPortal(AActor *actor)
 		if (sectorPortals[i].mSkybox == actor) return i;
 	}
 	unsigned i = sectorPortals.Reserve(1);
-	memset(&sectorPortals[i], 0, sizeof(sectorPortals[i]));
 	sectorPortals[i].mType = PORTS_SKYVIEWPOINT;
 	sectorPortals[i].mFlags = actor->GetClass()->IsDescendantOf("SkyCamCompat") ? 0 : PORTSF_SKYFLATONLY;
 	sectorPortals[i].mSkybox = actor;
@@ -565,7 +564,6 @@ DEFINE_ACTION_FUNCTION(FLevelLocals, GetSkyboxPortal)
 unsigned FLevelLocals::GetPortal(int type, int plane, sector_t *from, sector_t *to, const DVector2 &displacement)
 {
 	unsigned i = sectorPortals.Reserve(1);
-	memset(&sectorPortals[i], 0, sizeof(sectorPortals[i]));
 	sectorPortals[i].mType = type;
 	sectorPortals[i].mPlane = plane;
 	sectorPortals[i].mOrigin = from;
@@ -586,7 +584,6 @@ unsigned FLevelLocals::GetPortal(int type, int plane, sector_t *from, sector_t *
 unsigned FLevelLocals::GetStackPortal(AActor *point, int plane)
 {
 	unsigned i = sectorPortals.Reserve(1);
-	memset(&sectorPortals[i], 0, sizeof(sectorPortals[i]));
 	sectorPortals[i].mType = PORTS_STACKEDSECTORTHING;
 	sectorPortals[i].mPlane = plane;
 	sectorPortals[i].mOrigin = point->target->Sector;
@@ -1079,7 +1076,7 @@ bool FLevelLocals::CollectConnectedGroups(int startgroup, const DVector3 &positi
 
 			FBoundingBox box(position.X + disp.pos.X, position.Y + disp.pos.Y, checkradius);
 
-			if (!box.inRange(ld) || box.BoxOnLineSide(linkedPortals[i]->mOrigin) != -1) continue;	// not touched
+			if (!inRange(box, ld) || BoxOnLineSide(box, linkedPortals[i]->mOrigin) != -1) continue;	// not touched
 			foundPortals.Push(linkedPortals[i]);
 		}
 		bool foundone = true;
@@ -1138,7 +1135,7 @@ bool FLevelLocals::CollectConnectedGroups(int startgroup, const DVector3 &positi
 				line_t *ld;
 				while ((ld = it.Next()))
 				{
-					if (!box.inRange(ld) || box.BoxOnLineSide(ld) != -1)
+					if (!inRange(box, ld) || BoxOnLineSide(box, ld) != -1)
 						continue;
 
 					if (!(thisgroup & FPortalGroupArray::LOWER))

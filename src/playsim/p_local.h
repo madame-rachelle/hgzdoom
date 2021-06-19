@@ -117,8 +117,6 @@ AActor *P_OldSpawnMissile(AActor *source, AActor *owner, AActor *dest, PClassAct
 AActor *P_SpawnMissile (AActor* source, AActor* dest, PClassActor *type, AActor* owner = NULL);
 AActor *P_SpawnMissileZ(AActor* source, double z, AActor* dest, PClassActor *type);
 AActor *P_SpawnMissileXYZ(DVector3 pos, AActor *source, AActor *dest, PClassActor *type, bool checkspawn = true, AActor *owner = NULL);
-AActor *P_SpawnMissileAngle(AActor *source, PClassActor *type, DAngle angle, double vz);
-AActor *P_SpawnMissileAngleZ(AActor *source, double z, PClassActor *type, DAngle angle, double vz);
 AActor *P_SpawnMissileAngleZSpeed(AActor *source, double z, PClassActor *type, DAngle angle, double vz, double speed, AActor *owner = NULL, bool checkspawn = true);
 AActor *P_SpawnMissileZAimed(AActor *source, double z, AActor *dest, PClassActor *type);
 
@@ -217,6 +215,12 @@ enum WARPF
 	WARPF_COPYPITCH			= 0x8000,
 };
 
+enum SPF
+{
+	SPF_FORCECLAMP = 1,	// players always clamp
+	SPF_INTERPOLATE = 2,
+};
+
 enum PCM
 {
 	PCM_DROPOFF =		1,
@@ -246,6 +250,7 @@ extern TArray<spechit_t> portalhit;
 int	P_TestMobjLocation (AActor *mobj);
 int	P_TestMobjZ (AActor *mobj, bool quick=true, AActor **pOnmobj = NULL);
 bool P_CheckPosition(AActor *thing, const DVector2 &pos, bool actorsonly = false);
+void P_DoMissileDamage(AActor* inflictor, AActor* target);
 bool P_CheckPosition(AActor *thing, const DVector2 &pos, FCheckPosition &tm, bool actorsonly = false);
 AActor	*P_CheckOnmobj (AActor *thing);
 void	P_FakeZMovement (AActor *mo);
@@ -399,7 +404,7 @@ enum
 };
 int P_GetRadiusDamage(AActor *self, AActor *thing, int damage, int distance, int fulldmgdistance, bool oldradiusdmg);
 int	P_RadiusAttack (AActor *spot, AActor *source, int damage, int distance, 
-						FName damageType, int flags, int fulldamagedistance=0);
+						FName damageType, int flags, int fulldamagedistance=0, FName species = NAME_None);
 
 void	P_DelSeclist(msecnode_t *, msecnode_t *sector_t::*seclisthead);
 void	P_DelSeclist(portnode_t *, portnode_t *FLinePortal::*seclisthead);

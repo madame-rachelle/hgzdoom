@@ -20,6 +20,7 @@ class Stalker : Actor
 		+NOVERTICALMELEERANGE
 		MaxDropOffHeight 32;
 		MinMissileChance 150;
+		Tag "$TAG_STALKER";
 		SeeSound "stalker/sight";
 		AttackSound "stalker/attack";
 		PainSound "stalker/pain";
@@ -128,7 +129,7 @@ class Stalker : Actor
 
 	void A_StalkerWalk ()
 	{
-		A_PlaySound ("stalker/walk", CHAN_BODY);
+		A_StartSound ("stalker/walk", CHAN_BODY);
 		A_Chase ();
 	}
 

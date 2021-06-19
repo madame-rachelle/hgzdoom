@@ -14,6 +14,7 @@ class Reaver : Actor
 		MinMissileChance 150;
 		MaxDropoffHeight 32;
 		Mass 500;
+		Tag "$TAG_REAVER";
 		SeeSound "reaver/sight";
 		PainSound "reaver/pain";
 		DeathSound "reaver/death";
@@ -72,7 +73,7 @@ extend class Actor
 		if (target != null)
 		{
 			A_FaceTarget ();
-			A_PlaySound ("reaver/attack", CHAN_WEAPON);
+			A_StartSound ("reaver/attack", CHAN_WEAPON);
 			double bangle = Angle;
 			double pitch = AimLineAttack (bangle, MISSILERANGE);
 

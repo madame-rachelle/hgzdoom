@@ -55,6 +55,7 @@ extend class Actor
 		double bangle;
 		double bslope = 0.;
 		int laflags = (flags & CBAF_NORANDOMPUFFZ)? LAF_NORANDOMPUFFZ : 0;
+		FTranslatedLineTarget t;
 
 		if (ref != NULL || (flags & CBAF_AIMFACING))
 		{
@@ -67,7 +68,7 @@ extend class Actor
 			if (!(flags & CBAF_NOPITCH)) bslope = AimLineAttack (bangle, MISSILERANGE);
 			if (pufftype == null) pufftype = 'BulletPuff';
 
-			A_PlaySound(AttackSound, CHAN_WEAPON);
+			A_StartSound(AttackSound, CHAN_WEAPON);
 			for (i = 0; i < numbullets; i++)
 			{
 				double pangle = bangle;
@@ -89,7 +90,7 @@ extend class Actor
 				if (!(flags & CBAF_NORANDOM))
 					damage *= random[cwbullet](1, 3);
 
-				let puff = LineAttack(pangle, range, slope, damage, 'Hitscan', pufftype, laflags);
+				let puff = LineAttack(pangle, range, slope, damage, 'Hitscan', pufftype, laflags, t);
 				if (missile != null && pufftype != null)
 				{
 					double ang = pangle - 90;
@@ -104,11 +105,19 @@ extend class Actor
 						bool temp = (puff == null);
 						if (!puff)
 						{
-							puff = LineAttack(pangle, range, slope, 0, 'Hitscan', pufftype, laflags | LAF_NOINTERACT);
+							puff = LineAttack(pangle, range, slope, 0, 'Hitscan', pufftype, laflags | LAF_NOINTERACT, t);
 						}
 						if (puff)
 						{			
 							AimBulletMissile(proj, puff, flags, temp, true);
+							if (t.unlinked)
+							{
+								// Arbitary portals will make angle and pitch calculations unreliable.
+								// So use the angle and pitch we passed instead.
+								proj.Angle = pangle;
+								proj.Pitch = bslope;
+								proj.Vel3DFromAngle(proj.Speed, proj.Angle, proj.Pitch);
+							}
 						}
 					}
 				}
@@ -162,7 +171,7 @@ extend class Actor
 				looker.target = target;
 				if (looker.SeeSound)
 				{
-					looker.A_PlaySound(looker.SeeSound, CHAN_VOICE);
+					looker.A_StartSound(looker.SeeSound, CHAN_VOICE);
 				}
 				looker.SetState(looker.SeeState);
 				looker.bInCombat = true;
@@ -613,7 +622,7 @@ extend class Actor
 	//
 	//==========================================================================
 
-	void A_RadiusThrust(int force = 128, int distance = -1, int flags = RTF_AFFECTSOURCE, int fullthrustdistance = 0)
+	void A_RadiusThrust(int force = 128, int distance = -1, int flags = RTF_AFFECTSOURCE, int fullthrustdistance = 0, name species = "None")
 	{
 		if (force == 0) force = 128;
 		if (distance <= 0) distance = abs(force);
@@ -628,7 +637,7 @@ extend class Actor
 				target.bNoDamageThrust = false;
 			}
 		}
-		RadiusAttack (target, force, distance, DamageType, flags | RADF_NODAMAGE, fullthrustdistance);
+		RadiusAttack (target, force, distance, DamageType, flags | RADF_NODAMAGE, fullthrustdistance, species);
 		CheckSplash(distance);
 		if (target) target.bNoDamageThrust = nothrust;
 	}
@@ -662,7 +671,7 @@ extend class Actor
 		if (domelee && MeleeDamage>0 && CheckMeleeRange ())
 		{
 			int damage = random[CustomMelee](1, 8) * MeleeDamage;
-			if (MeleeSound) A_PlaySound (MeleeSound, CHAN_WEAPON);
+			if (MeleeSound) A_StartSound (MeleeSound, CHAN_WEAPON);
 			int newdam = targ.DamageMobj (self, self, damage, 'Melee');
 			targ.TraceBleed (newdam > 0 ? newdam : damage, self);
 		}
@@ -686,18 +695,18 @@ extend class Actor
 		}
 	}
 
-	deprecated("2.3") void A_MeleeAttack()
+	deprecated("2.3", "Use CustomMeleeAttack() instead") void A_MeleeAttack()
 	{
 		DoAttack(true, false, MeleeDamage, MeleeSound, NULL, 0);
 	}
 
-	deprecated("2.3") void A_MissileAttack()
+	deprecated("2.3", "Use A_SpawnProjectile() instead") void A_MissileAttack()
 	{
 		Class<Actor> MissileType = MissileName;
 		DoAttack(false, true, 0, 0, MissileType, MissileHeight);
 	}
 
-	deprecated("2.3") void A_ComboAttack()
+	deprecated("2.3", "Use A_BasicAttack() instead") void A_ComboAttack()
 	{
 		Class<Actor> MissileType = MissileName;
 		DoAttack(true, true, MeleeDamage, MeleeSound, MissileType, MissileHeight);

@@ -728,7 +728,7 @@ void P_DoNewChaseDir (AActor *actor, double deltax, double deltay)
 	{
 		if ((pr_newchasedir() > 200 || fabs(deltay) > fabs(deltax)))
 		{
-			swapvalues (d[0], d[1]);
+			std::swap (d[0], d[1]);
 		}
 
 		if (d[0] == turnaround)
@@ -875,8 +875,8 @@ void P_NewChaseDir(AActor * actor)
 		while ((line = it.Next()))
 		{
 			if (line->backsector  && // Ignore one-sided linedefs
-				box.inRange(line) &&
-				box.BoxOnLineSide(line) == -1)
+				inRange(box, line) &&
+				BoxOnLineSide(box, line) == -1)
 		    {
 				double front = line->frontsector->floorplane.ZatPoint(actor->PosRelative(line));
 				double back  = line->backsector->floorplane.ZatPoint(actor->PosRelative(line));
@@ -1041,7 +1041,7 @@ void P_RandomChaseDir (AActor *actor)
 				// try other directions
 				if (pr_newchasedir() > 200 || fabs(delta.Y) > fabs(delta.X))
 				{
-					swapvalues (d[1], d[2]);
+					std::swap (d[1], d[2]);
 				}
 
 				if (d[1] == turnaround)
@@ -1848,11 +1848,11 @@ DEFINE_ACTION_FUNCTION(AActor, A_Look)
 	{
 		if (self->flags2 & MF2_BOSS)
 		{ // full volume
-			S_Sound (self, CHAN_VOICE, self->SeeSound, 1, ATTN_NONE);
+			S_Sound (self, CHAN_VOICE, 0, self->SeeSound, 1, ATTN_NONE);
 		}
 		else
 		{
-			S_Sound (self, CHAN_VOICE, self->SeeSound, 1, ATTN_NORM);
+			S_Sound (self, CHAN_VOICE, 0, self->SeeSound, 1, ATTN_NORM);
 		}
 	}
 
@@ -2030,11 +2030,11 @@ DEFINE_ACTION_FUNCTION(AActor, A_LookEx)
 	{
 		if (flags & LOF_FULLVOLSEESOUND)
 		{ // full volume
-			S_Sound (self, CHAN_VOICE, self->SeeSound, 1, ATTN_NONE);
+			S_Sound (self, CHAN_VOICE, 0, self->SeeSound, 1, ATTN_NONE);
 		}
 		else
 		{
-			S_Sound (self, CHAN_VOICE, self->SeeSound, 1, ATTN_NORM);
+			S_Sound (self, CHAN_VOICE, 0, self->SeeSound, 1, ATTN_NORM);
 		}
 	}
 
@@ -2456,7 +2456,7 @@ void A_DoChase (AActor *actor, bool fastchase, FState *meleestate, FState *missi
 		if (meleestate && actor->CheckMeleeRange ())
 		{
 			if (actor->AttackSound)
-				S_Sound (actor, CHAN_WEAPON, actor->AttackSound, 1, ATTN_NORM);
+				S_Sound (actor, CHAN_WEAPON, 0, actor->AttackSound, 1, ATTN_NORM);
 
 			actor->SetState (meleestate);
 			actor->flags &= ~MF_INCHASE;
@@ -2717,7 +2717,7 @@ bool P_CheckForResurrection(AActor *self, bool usevilestates)
 						self->SetState(archvile->FindState(NAME_Heal));
 					}
 				}
-				S_Sound(corpsehit, CHAN_BODY, "vile/raise", 1, ATTN_IDLE);
+				S_Sound(corpsehit, CHAN_BODY, 0, "vile/raise", 1, ATTN_IDLE);
 				info = corpsehit->GetDefault();
 
 				if (GetTranslationType(corpsehit->Translation) == TRANSLATION_Blood)
@@ -3010,13 +3010,13 @@ DEFINE_ACTION_FUNCTION(AActor, A_Pain)
 		{
 			FString pain_sound = pain_amount;
 			pain_sound += '-';
-			pain_sound += self->player->LastDamageType;
+			pain_sound += self->player->LastDamageType.GetChars();
 			sfx_id = pain_sound;
 			if (sfx_id == 0)
 			{
 				// Try again without a specific pain amount.
 				pain_sound = "*pain-";
-				pain_sound += self->player->LastDamageType;
+				pain_sound += self->player->LastDamageType.GetChars();
 				sfx_id = pain_sound;
 			}
 		}
@@ -3025,11 +3025,11 @@ DEFINE_ACTION_FUNCTION(AActor, A_Pain)
 			sfx_id = pain_amount;
 		}
 
-		S_Sound (self, CHAN_VOICE, sfx_id, 1, ATTN_NORM);
+		S_Sound (self, CHAN_VOICE, 0, sfx_id, 1, ATTN_NORM);
 	}
 	else if (self->PainSound)
 	{
-		S_Sound (self, CHAN_VOICE, self->PainSound, 1, ATTN_NORM);
+		S_Sound (self, CHAN_VOICE, 0, self->PainSound, 1, ATTN_NORM);
 	}
 	return 0;
 }
@@ -3050,15 +3050,24 @@ int CheckBossDeath (AActor *actor)
 	auto iterator = actor->Level->GetThinkerIterator<AActor>();
 	AActor *other;
 
+	PClassActor *cls = actor->GetClass();
+	FName type = cls->GetReplacee(actor->Level)->TypeName;
+
 	while ( (other = iterator.Next ()) )
 	{
-		if (other != actor &&
-			(other->health > 0 || (other->flags & MF_ICECORPSE))
-			&& other->GetClass() == actor->GetClass())
+		if (other == actor)
+			continue;
+
+		PClassActor *ocls = other->GetClass();
+		FName otype = ocls->GetReplacee(other->Level)->TypeName;
+
+		if ((other->health > 0 || (other->flags & MF_ICECORPSE))
+			&& (ocls == cls || otype == type))
 		{ // Found a living boss
 		  // [RH] Frozen bosses don't count as dead until they shatter
 			return false;
 		}
+		
 	}
 	// The boss death is good
 	return true;
@@ -3144,17 +3153,20 @@ void A_BossDeath(AActor *self)
 	}
 	if (Level->flags & LEVEL_MAP07SPECIAL)
 	{
-		if (type == NAME_Fatso)
+		PClassActor * fatso = PClass::FindActor(NAME_Fatso);
+		PClassActor * arachnotron = PClass::FindActor(NAME_Arachnotron);
+		bool samereplacement = (type == NAME_Fatso || type == NAME_Arachnotron) && fatso && arachnotron && fatso->GetReplacement(Level) == arachnotron->GetReplacement(Level);
+
+		if (type == NAME_Fatso || samereplacement)
 		{
 			Level->EV_DoFloor (DFloor::floorLowerToLowest, NULL, 666, 1., 0, -1, 0, false);
-			return;
 		}
 		
-		if (type == NAME_Arachnotron)
+		if (type == NAME_Arachnotron || samereplacement)
 		{
 			Level->EV_DoFloor (DFloor::floorRaiseByTexture, NULL, 667, 1., 0, -1, 0, false);
-			return;
 		}
+		return;
 	}
 	else
 	{

@@ -120,17 +120,18 @@ void MapLoader::SpawnLinePortal(line_t* line)
 	// portal destination is special argument #0
 	line_t* dst = nullptr;
 
-	if (line->args[2] >= PORTT_VISUAL && line->args[2] <= PORTT_LINKED)
+	if ((line->args[2] >= PORTT_VISUAL && line->args[2] <= PORTT_LINKED) || line->special == Line_QuickPortal)
 	{
-		dst = Level->FindPortalDestination(line, line->args[0]);
+		int type = (line->special != Line_QuickPortal) ? line->args[2] : line->args[0] == 0 ? PORTT_LINKED : PORTT_VISUAL;
+		int tag = (line->special == Line_QuickPortal) ? Level->tagManager.GetFirstLineID(line) : line->args[0];
+		dst = Level->FindPortalDestination(line, tag, line->special == Line_QuickPortal? Line_QuickPortal : -1);
 
 		line->portalindex = Level->linePortals.Reserve(1);
 		FLinePortal *port = &Level->linePortals.Last();
 
-		memset(port, 0, sizeof(FLinePortal));
 		port->mOrigin = line;
 		port->mDestination = dst;
-		port->mType = uint8_t(line->args[2]);	// range check is done above.
+		port->mType = uint8_t(type);	// range check is done above.
 
 		if (port->mType == PORTT_LINKED)
 		{
@@ -139,7 +140,8 @@ void MapLoader::SpawnLinePortal(line_t* line)
 		}
 		else
 		{
-			port->mAlign = uint8_t(line->args[3] >= PORG_ABSOLUTE && line->args[3] <= PORG_CEILING ? line->args[3] : PORG_ABSOLUTE);
+			int flags = (line->special == Line_QuickPortal) ? PORG_ABSOLUTE : line->args[3];
+			port->mAlign = uint8_t(flags >= PORG_ABSOLUTE && flags <= PORG_CEILING ? flags : PORG_ABSOLUTE);
 			if (port->mType == PORTT_INTERACTIVE && port->mAlign != PORG_ABSOLUTE)
 			{
 				// Due to the way z is often handled, these pose a major issue for parts of the code that needs to transparently handle interactive portals.
@@ -755,6 +757,7 @@ void MapLoader::SpawnSpecials ()
 			break;
 
 		case Line_SetPortal:
+		case Line_QuickPortal:
 			SpawnLinePortal(&line);
 			break;
 
@@ -943,7 +946,8 @@ int MapLoader::Set3DFloor(line_t * line, int param, int param2, int alpha)
 			// if flooding is used the floor must be non-solid and is automatically made shootthrough and seethrough
 			if ((param2 & 128) && !(flags & FF_SOLID)) flags |= FF_FLOOD | FF_SEETHROUGH | FF_SHOOTTHROUGH;
 			if (param2 & 512) flags |= FF_FADEWALLS;
-			if (param2&1024) flags |= FF_RESET;
+			if (param2 & 1024) flags |= FF_RESET;
+			if (param2 & 2048) flags |= FF_NODAMAGE;
 			FTextureID tex = line->sidedef[0]->GetTexture(side_t::top);
 			if (!tex.Exists() && alpha < 255)
 			{
@@ -970,7 +974,7 @@ int MapLoader::Set3DFloor(line_t * line, int param, int param2, int alpha)
 
 void MapLoader::Spawn3DFloors ()
 {
-	static int flagvals[] = {512, 2+512, 512+1024};
+	static int flagvals[] = {512+2048, 2+512+2048, 512+1024+2048};
 
 	for (auto &line : Level->lines)
 	{
@@ -1325,11 +1329,18 @@ void MapLoader::SpawnScrollers()
 			// (same direction and speed as scrolling floors)
 		case Scroll_Texture_Model:
 		{
-			auto itr = Level->GetLineIdIterator(l->args[0]);
-			while ((s = itr.Next()) >= 0)
+			if (l->args[0] != 0)
 			{
-				if (s != (int)i)
-					Level->CreateThinker<DScroller>(dx, dy, &Level->lines[s], control, accel);
+				auto itr = Level->GetLineIdIterator(l->args[0]);
+				while ((s = itr.Next()) >= 0)
+				{
+					if (s != (int)i)
+						Level->CreateThinker<DScroller>(dx, dy, &Level->lines[s], control, accel);
+				}
+			}
+			else
+			{
+				Level->CreateThinker<DScroller>(dx, dy, l, control, accel);
 			}
 			break;
 		}

@@ -34,6 +34,7 @@
 #include "doomstat.h"
 #include "r_state.h"
 #include "serializer.h"
+#include "serialize_obj.h"
 #include "p_3dmidtex.h"
 #include "p_spec.h"
 #include "r_data/r_interpolate.h"
@@ -319,6 +320,7 @@ bool FLevelLocals::CreateFloor(sector_t *sec, DFloor::EFloor floortype, line_t *
 
 	case DFloor::floorLowerInstant:
 		floor->m_Speed = height;
+		[[fallthrough]];
 	case DFloor::floorLowerByValue:
 		floor->m_Direction = -1;
 		newheight = sec->CenterFloor() - height;
@@ -327,6 +329,7 @@ bool FLevelLocals::CreateFloor(sector_t *sec, DFloor::EFloor floortype, line_t *
 
 	case DFloor::floorRaiseInstant:
 		floor->m_Speed = height;
+		[[fallthrough]];
 	case DFloor::floorRaiseByValue:
 		floor->m_Direction = 1;
 		newheight = sec->CenterFloor() + height;
@@ -341,6 +344,7 @@ bool FLevelLocals::CreateFloor(sector_t *sec, DFloor::EFloor floortype, line_t *
 
 	case DFloor::floorRaiseAndCrushDoom:
 		height = 8;
+		[[fallthrough]];
 	case DFloor::floorRaiseToLowestCeiling:
 		floor->m_Direction = 1;
 		newheight = FindLowestCeilingSurrounding(sec, &spot) - height;

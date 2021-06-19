@@ -839,10 +839,10 @@ bool FTraceInfo::TraceTraverse (int ptflags)
 		{
 			if (in->d.line->isLinePortal() && P_PointOnLineSidePrecise(Start, in->d.line) == 0)
 			{
-				sector_t *entersector = in->d.line->backsector;
+				sector_t* entersector = in->d.line->backsector;
 				if (entersector == NULL || (hit.Z >= entersector->floorplane.ZatPoint(hit) && hit.Z <= entersector->ceilingplane.ZatPoint(hit)))
 				{
-					FLinePortal *port = in->d.line->getPortal();
+					FLinePortal* port = in->d.line->getPortal();
 					// The caller cannot handle portals without global offset.
 					if (port->mType == PORTT_LINKED || !(TraceFlags & TRACE_PortalRestrict))
 					{
@@ -853,7 +853,7 @@ bool FTraceInfo::TraceTraverse (int ptflags)
 			}
 			if (!LineCheck(in, dist, hit, false)) break;
 		}
-		else if ((in->d.thing->flags & ActorMask) && in->d.thing != IgnoreThis)
+		else if (((in->d.thing->flags & ActorMask) || ActorMask == 0xffffffff) && in->d.thing != IgnoreThis)
 		{
 			if (!ThingCheck(in, dist, hit)) break;
 		}
@@ -900,6 +900,41 @@ bool FTraceInfo::TraceTraverse (int ptflags)
 		SetSourcePosition();
 		Results->Distance = MaxDist;
 		Results->Fraction = 1.;
+	}
+
+	// [MK] set 3d floor on plane hits (if any)
+	// modders will need this to get accurate plane normals on slopes
+	if (Results->HitType == TRACE_HitFloor)
+	{
+		double secbottom = Results->Sector->floorplane.ZatPoint(Results->HitPos);
+		for (auto rover : Results->Sector->e->XFloor.ffloors)
+		{
+			if (!(rover->flags&FF_EXISTS))
+				continue;
+			double ff_top = rover->top.plane->ZatPoint(Results->HitPos);
+			if (fabs(ff_top-secbottom) < EQUAL_EPSILON)
+				continue;
+			if (fabs(ff_top-Results->HitPos.Z) > EQUAL_EPSILON)
+				continue;
+			Results->ffloor = rover;
+			break;
+		}
+	}
+	else if (Results->HitType == TRACE_HitCeiling)
+	{
+		double sectop = Results->Sector->ceilingplane.ZatPoint(Results->HitPos);
+		for (auto rover : Results->Sector->e->XFloor.ffloors)
+		{
+			if (!(rover->flags&FF_EXISTS))
+				continue;
+			double ff_bottom = rover->bottom.plane->ZatPoint(Results->HitPos);
+			if (fabs(ff_bottom-sectop) < EQUAL_EPSILON)
+				continue;
+			if (fabs(ff_bottom-Results->HitPos.Z) > EQUAL_EPSILON)
+				continue;
+			Results->ffloor = rover;
+			break;
+		}
 	}
 	return Results->HitType != TRACE_HitNone;
 }
@@ -1008,6 +1043,7 @@ DEFINE_FIELD_X(TraceResults, FTraceResults, Side)
 DEFINE_FIELD_X(TraceResults, FTraceResults, Tier)
 DEFINE_FIELD_X(TraceResults, FTraceResults, unlinked)
 DEFINE_FIELD_X(TraceResults, FTraceResults, HitType)
+DEFINE_FIELD_X(TraceResults, FTraceResults, ffloor)
 DEFINE_FIELD_X(TraceResults, FTraceResults, CrossedWater)
 DEFINE_FIELD_X(TraceResults, FTraceResults, CrossedWaterPos)
 DEFINE_FIELD_X(TraceResults, FTraceResults, Crossed3DWater)

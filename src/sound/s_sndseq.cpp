@@ -28,7 +28,7 @@
 #include "m_random.h"
 #include "s_sound.h"
 #include "s_sndseq.h"
-#include "w_wad.h"
+#include "filesystem.h"
 #include "cmdlib.h"
 #include "p_local.h"
 #include "po_man.h"
@@ -36,7 +36,8 @@
 #include "c_dispatch.h"
 
 #include "g_level.h"
-#include "serializer.h"
+#include "serializer_doom.h"
+#include "serialize_obj.h"
 #include "d_player.h"
 #include "g_levellocals.h"
 #include "vm.h"
@@ -47,10 +48,13 @@
 #define GetData(a)			(int32_t(a) >> 8 )
 #define GetFloatData(a)		float((int32_t(a) >> 8 )/65536.f)
 #define MakeCommand(a,b)	((a) | ((b) << 8))
-#define HexenPlatSeq(a)		(a)
-#define HexenDoorSeq(a)		((a) | 0x40)
-#define HexenEnvSeq(a)		((a) | 0x80)
-#define HexenLastSeq		(0xff)
+#define HexenPlatSeqStart	(0)
+#define HexenDoorSeqStart	(MAX_SNDSEQS)
+#define HexenEnvSeqStart	(MAX_SNDSEQS << 1)
+#define HexenPlatSeq(a)		((a) | (HexenPlatSeqStart))
+#define HexenDoorSeq(a)		((a) | (HexenDoorSeqStart))
+#define HexenEnvSeq(a)		((a) | (HexenEnvSeqStart))
+#define HexenLastSeq		((MAX_SNDSEQS << 2) - 1)
 
 // TYPES -------------------------------------------------------------------
 
@@ -105,7 +109,7 @@ typedef enum
 struct hexenseq_t
 {
 	ENamedName	Name;
-	uint8_t		Seqs[4];
+	uint16_t	Seqs[4];
 };
 
 class DSeqActorNode : public DSeqNode
@@ -118,7 +122,7 @@ public:
 	void Serialize(FSerializer &arc);
 	void MakeSound(int loop, FSoundID id)
 	{
-		S_Sound(m_Actor, CHAN_BODY|loop, id, clamp(m_Volume, 0.f, 1.f), m_Atten);
+		S_Sound(m_Actor, CHAN_BODY, EChanFlags::FromInt(loop), id, clamp(m_Volume, 0.f, 1.f), m_Atten);
 	}
 	bool IsPlaying()
 	{
@@ -146,11 +150,11 @@ public:
 	void Serialize(FSerializer &arc);
 	void MakeSound(int loop, FSoundID id)
 	{
-		S_Sound (m_Poly, CHAN_BODY|loop, id, clamp(m_Volume, 0.f, 1.f), m_Atten);
+		S_Sound (m_Poly, CHAN_BODY, EChanFlags::FromInt(loop), id, clamp(m_Volume, 0.f, 1.f), m_Atten);
 	}
 	bool IsPlaying()
 	{
-		return S_GetSoundPlayingInfo (m_Poly, m_CurrentSoundID);
+		return m_CurrentSoundID != 0 && S_GetSoundPlayingInfo (m_Poly, m_CurrentSoundID);
 	}
 	void *Source()
 	{
@@ -174,12 +178,12 @@ public:
 	void Serialize(FSerializer &arc);
 	void MakeSound(int loop, FSoundID id)
 	{
-		Channel = (Channel & 7) | CHAN_AREA | loop;
-		S_Sound(m_Sector, Channel, id, clamp(m_Volume, 0.f, 1.f), m_Atten);
+		// The Channel here may have CHANF_LOOP encoded into it.
+		S_Sound(m_Sector, Channel & 7, CHANF_AREA | EChanFlags::FromInt(loop| (Channel & ~7)), id, clamp(m_Volume, 0.f, 1.f), m_Atten);
 	}
 	bool IsPlaying()
 	{
-		return S_GetSoundPlayingInfo (m_Sector, m_CurrentSoundID);
+		return m_CurrentSoundID != 0 && S_GetSoundPlayingInfo (m_Sector, m_CurrentSoundID);
 	}
 	void *Source()
 	{
@@ -281,7 +285,7 @@ static const hexenseq_t HexenSequences[] = {
 	{ NAME_None, {0} }
 };
 
-static int SeqTrans[64*3];
+static int SeqTrans[MAX_SNDSEQS*3];
 
 static FRandom pr_sndseq ("SndSeq");
 
@@ -429,7 +433,7 @@ void DSeqNode::AddChoice (int seqnum, seqtype_t type)
 DEFINE_ACTION_FUNCTION(DSeqNode, AddChoice)
 {
 	PARAM_SELF_PROLOGUE(DSeqNode);
-	PARAM_NAME(seq);
+	PARAM_INT(seq);
 	PARAM_INT(mode);
 	self->AddChoice(seq, seqtype_t(mode));
 	return 0;
@@ -490,7 +494,7 @@ static void AssignTranslations (FScanner &sc, int seq, seqtype_t type)
 	{
 		if (IsNum(sc.String))
 		{
-			SeqTrans[(atoi(sc.String) & 63) + type * 64] = seq;
+			SeqTrans[(atoi(sc.String) & (MAX_SNDSEQS - 1)) + type * MAX_SNDSEQS] = seq;
 		}
 	}
 	sc.UnGet();
@@ -510,7 +514,7 @@ static void AssignHexenTranslations (void)
 	{
 		for (seq = 0; seq < Sequences.Size(); seq++)
 		{
-			if (Sequences[seq] != NULL && HexenSequences[i].Name == Sequences[seq]->SeqName)
+			if (Sequences[seq] != NULL && Sequences[seq]->SeqName == HexenSequences[i].Name)
 				break;
 		}
 		if (seq == Sequences.Size())
@@ -520,16 +524,16 @@ static void AssignHexenTranslations (void)
 		{
 			int trans;
 
-			if (HexenSequences[i].Seqs[j] & 0x40)
+			if (HexenSequences[i].Seqs[j] & HexenDoorSeqStart)
 			{
-				trans = 64 * SEQ_DOOR;
+				trans = MAX_SNDSEQS * SEQ_DOOR;
 			}
-			else if (HexenSequences[i].Seqs[j] & 0x80)
-				trans = 64 * SEQ_ENVIRONMENT;
+			else if (HexenSequences[i].Seqs[j] & HexenEnvSeqStart)
+				trans = MAX_SNDSEQS * SEQ_ENVIRONMENT;
 			else
-				trans = 64 * SEQ_PLATFORM;
+				trans = MAX_SNDSEQS * SEQ_PLATFORM;
 
-			SeqTrans[trans + (HexenSequences[i].Seqs[j] & 0x3f)] = seq;
+			SeqTrans[trans + (HexenSequences[i].Seqs[j] & (MAX_SNDSEQS - 1))] = seq;
 		}
 	}
 }
@@ -581,7 +585,7 @@ void S_ParseSndSeq (int levellump)
 	memset (SeqTrans, -1, sizeof(SeqTrans));
 	lastlump = 0;
 
-	while (((lump = Wads.FindLump ("SNDSEQ", &lastlump)) != -1 || levellump != -1) && levellump != -2)
+	while (((lump = fileSystem.FindLump ("SNDSEQ", &lastlump)) != -1 || levellump != -1) && levellump != -2)
 	{
 		if (lump == -1)
 		{
@@ -642,7 +646,7 @@ void S_ParseSndSeq (int levellump)
 					{
 						ScriptTemp.Push (sc.Number);
 						sc.MustGetString();
-						ScriptTemp.Push (FName(sc.String));
+						ScriptTemp.Push (FName(sc.String).GetIndex());
 					}
 					else
 					{
@@ -859,9 +863,9 @@ static bool TwiddleSeqNum (int &sequence, seqtype_t type)
 	{
 		// [GrafZahl] Needs some range checking:
 		// Sector_ChangeSound doesn't do it so this makes invalid sequences play nothing.
-		if (sequence >= 0 && sequence < 64)
+		if (sequence >= 0 && sequence < MAX_SNDSEQS)
 		{
-			sequence = SeqTrans[sequence + type * 64];
+			sequence = SeqTrans[sequence + type * MAX_SNDSEQS];
 		}
 		else
 		{
@@ -1162,7 +1166,7 @@ bool SN_IsMakingLoopingSound (sector_t *sector)
 		DSeqNode *next = node->NextSequence();
 		if (node->Source() == (void *)sector)
 		{
-			return !!(static_cast<DSeqSectorNode *>(node)->Channel & CHAN_LOOP);
+			return !!(static_cast<DSeqSectorNode *>(node)->Channel & CHANF_LOOP);
 		}
 		node = next;
 	}
@@ -1222,7 +1226,7 @@ void DSeqNode::Tick ()
 			{
 				// Does not advance sequencePtr, so it will repeat as necessary.
 				m_CurrentSoundID = FSoundID(GetData(*m_SequencePtr));
-				MakeSound (CHAN_LOOP, m_CurrentSoundID);
+				MakeSound (CHANF_LOOP, m_CurrentSoundID);
 			}
 			return;
 
@@ -1433,13 +1437,13 @@ void SN_MarkPrecacheSounds(int sequence, seqtype_t type)
 	{
 		FSoundSequence *seq = Sequences[sequence];
 
-		seq->StopSound.MarkUsed();
+		soundEngine->MarkUsed(seq->StopSound);
 		for (int i = 0; GetCommand(seq->Script[i]) != SS_CMD_END; ++i)
 		{
 			int cmd = GetCommand(seq->Script[i]);
 			if (cmd == SS_CMD_PLAY || cmd == SS_CMD_PLAYREPEAT || cmd == SS_CMD_PLAYLOOP)
 			{
-				FSoundID(GetData(seq->Script[i])).MarkUsed();
+				soundEngine->MarkUsed(GetData(seq->Script[i]));
 			}
 		}
 	}

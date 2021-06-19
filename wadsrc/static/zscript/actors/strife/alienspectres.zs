@@ -15,6 +15,7 @@ class AlienSpectre1 : SpectralMonster
 		MinMissileChance 150;
 		RenderStyle "Translucent";
 		Alpha 0.666;
+		Tag "$TAG_ALIENSPECTRE";
 		SeeSound "alienspectre/sight";
 		AttackSound "alienspectre/blade";
 		PainSound "alienspectre/pain";
@@ -179,7 +180,7 @@ class AlienSpectre1 : SpectralMonster
 		if (log > 0)
 		{
 			String voc = "svox/voc" .. log;
-			A_PlaySound(voc, CHAN_VOICE, 1, false, ATTN_NONE);
+			A_StartSound(voc, CHAN_VOICE, CHANF_DEFAULT, 1., ATTN_NONE);
 			player.player.SetLogNumber (log);
 			player.player.SetSubtitleNumber (log, voc);
 		}

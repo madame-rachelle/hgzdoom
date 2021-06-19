@@ -23,8 +23,8 @@
 #include <float.h>
 
 #include "templates.h"
-
-#include "w_wad.h"
+#include "v_draw.h"
+#include "filesystem.h"
 #include "doomdef.h"
 #include "doomstat.h"
 #include "r_sky.h"
@@ -53,8 +53,8 @@
 #include "swrenderer/viewport/r_viewport.h"
 #include "swrenderer/drawers/r_draw.h"
 #include "swrenderer/drawers/r_draw_rgba.h"
-#include "swrenderer/drawers/r_thread.h"
-#include "swrenderer/r_memory.h"
+#include "r_thread.h"
+#include "r_memory.h"
 #include "swrenderer/r_renderthread.h"
 #include "swrenderer/things/r_playersprite.h"
 #include <chrono>
@@ -66,14 +66,14 @@ void PeekThreadedErrorPane();
 EXTERN_CVAR(Int, r_clearbuffer)
 EXTERN_CVAR(Int, r_debug_draw)
 
-CVAR(Int, r_scene_multithreaded, 0, 0);
+CVAR(Int, r_scene_multithreaded, 1, 0);
 CVAR(Bool, r_models, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 
 bool r_modelscene = false;
 
 namespace swrenderer
 {
-	cycle_t WallCycles, PlaneCycles, MaskedCycles, DrawerWaitCycles;
+	cycle_t WallCycles, PlaneCycles, MaskedCycles;
 	
 	RenderScene::RenderScene()
 	{
@@ -104,12 +104,17 @@ namespace swrenderer
 		ActiveRatio(width, height, &trueratio);
 		viewport->SetViewport(player->camera->Level, MainThread(), width, height, trueratio);
 
-		r_modelscene = r_models && Models.Size() > 0;
+		/*r_modelscene = r_models && Models.Size() > 0;
 		if (r_modelscene)
 		{
-			PolyTriangleDrawer::ResizeBuffers(viewport->RenderTarget);
+			if (!DepthStencil || DepthStencil->Width() != viewport->RenderTarget->GetWidth() || DepthStencil->Height() != viewport->RenderTarget->GetHeight())
+			{
+				DepthStencil.reset();
+				DepthStencil.reset(new PolyDepthStencil(viewport->RenderTarget->GetWidth(), viewport->RenderTarget->GetHeight()));
+			}
+			PolyTriangleDrawer::SetViewport(MainThread()->DrawQueue, 0, 0, viewport->RenderTarget->GetWidth(), viewport->RenderTarget->GetHeight(), viewport->RenderTarget, DepthStencil.get());
 			PolyTriangleDrawer::ClearStencil(MainThread()->DrawQueue, 0);
-		}
+		}*/
 
 		if (r_clearbuffer != 0 || r_debug_draw != 0)
 		{
@@ -126,18 +131,17 @@ namespace swrenderer
 				for (int i = 0; i < size; i++)
 					dest[i] = bgracolor.d;
 			}
-			DrawerThreads::ResetDebugDrawPos();
 		}
 
 		RenderActorView(player->mo, true, false);
 
-		auto copyqueue = std::make_shared<DrawerCommandQueue>(MainThread()->FrameMemory.get());
-		copyqueue->Push<MemcpyCommand>(videobuffer, bufferpitch, target->GetPixels(), target->GetWidth(), target->GetHeight(), target->GetPitch(), target->IsBgra() ? 4 : 1);
-		DrawerThreads::Execute(copyqueue);
-
-		DrawerWaitCycles.Clock();
-		DrawerThreads::WaitForWorkers();
-		DrawerWaitCycles.Unclock();
+		if (videobuffer != target->GetPixels())
+		{
+			auto copyqueue = std::make_shared<DrawerCommandQueue>(MainThread()->FrameMemory.get());
+			copyqueue->Push<MemcpyCommand>(videobuffer, bufferpitch, target->GetPixels(), target->GetWidth(), target->GetHeight(), target->GetPitch(), target->IsBgra() ? 4 : 1);
+			DrawerThreads::Execute(copyqueue);
+			DrawerThreads::WaitForWorkers();
+		}
 	}
 
 	void RenderScene::RenderActorView(AActor *actor, bool renderPlayerSprites, bool dontmaplines)
@@ -145,7 +149,6 @@ namespace swrenderer
 		WallCycles.Reset();
 		PlaneCycles.Reset();
 		MaskedCycles.Reset();
-		DrawerWaitCycles.Reset();
 		
 		R_SetupFrame(MainThread()->Viewport->viewpoint, MainThread()->Viewport->viewwindow, actor);
 
@@ -186,14 +189,7 @@ namespace swrenderer
 
 	void RenderScene::RenderPSprites()
 	{
-		// Player sprites needs to be rendered after all the slices because they may be hardware accelerated.
-		// If they are not hardware accelerated the drawers must run after all sliced drawers finished.
-		DrawerWaitCycles.Clock();
-		DrawerThreads::WaitForWorkers();
-		DrawerWaitCycles.Unclock();
-		MainThread()->DrawQueue->Clear();
 		MainThread()->PlayerSprites->Render();
-		DrawerThreads::Execute(MainThread()->DrawQueue);
 	}
 
 	void RenderScene::RenderThreadSlices()
@@ -223,6 +219,7 @@ namespace swrenderer
 			Threads[i]->X2 = viewwidth * (i + 1) / numThreads;
 		}
 		run_id++;
+		FSoftwareTexture::CurrentUpdate = run_id;
 		start_lock.unlock();
 
 		// Notify threads to run
@@ -259,7 +256,6 @@ namespace swrenderer
 
 	void RenderScene::RenderThreadSlice(RenderThread *thread)
 	{
-		thread->DrawQueue->Clear();
 		thread->FrameMemory->Clear();
 		thread->Clip3D->Cleanup();
 		thread->Clip3D->ResetClip(); // reset clips (floor/ceiling)
@@ -272,10 +268,11 @@ namespace swrenderer
 		thread->OpaquePass->ResetFakingUnderwater(); // [RH] Hack to make windows into underwater areas possible
 		thread->Portal->SetMainPortal();
 
-		if (r_modelscene && thread->MainThread)
+		/*if (r_modelscene && thread->MainThread)
 			PolyTriangleDrawer::ClearStencil(MainThread()->DrawQueue, 0);
 
-		PolyTriangleDrawer::SetViewport(thread->DrawQueue, viewwindowx, viewwindowy, viewwidth, viewheight, thread->Viewport->RenderTarget);
+		PolyTriangleDrawer::SetViewport(thread->DrawQueue, viewwindowx, viewwindowy, viewwidth, viewheight, thread->Viewport->RenderTarget, DepthStencil.get());
+		PolyTriangleDrawer::SetScissor(thread->DrawQueue, viewwindowx, viewwindowy, viewwidth, viewheight);*/
 
 		// Cull things outside the range seen by this thread
 		VisibleSegmentRenderer visitor;
@@ -297,7 +294,37 @@ namespace swrenderer
 			thread->TranslucentPass->Render();
 		}
 
-		DrawerThreads::Execute(thread->DrawQueue);
+#if 0 // shows the render slice edges
+		if (thread->Viewport->RenderTarget->IsBgra())
+		{
+			uint32_t* left = (uint32_t*)thread->Viewport->GetDest(thread->X1, 0);
+			uint32_t* right = (uint32_t*)thread->Viewport->GetDest(thread->X2 - 1, 0);
+			int pitch = thread->Viewport->RenderTarget->GetPitch();
+			uint32_t c = MAKEARGB(255, 0, 0, 0);
+			for (int i = 0; i < viewheight; i++)
+			{
+				*left = c;
+				*right = c;
+				left += pitch;
+				right += pitch;
+			}
+		}
+		else
+		{
+			uint8_t* left = (uint8_t*)thread->Viewport->GetDest(thread->X1, 0);
+			uint8_t* right = (uint8_t*)thread->Viewport->GetDest(thread->X2 - 1, 0);
+			int pitch = thread->Viewport->RenderTarget->GetPitch();
+			int r = 0, g = 0, b = 0;
+			uint8_t c = RGB32k.RGB[(r >> 3)][(g >> 3)][(b >> 3)];
+			for (int i = 0; i < viewheight; i++)
+			{
+				*left = c;
+				*right = c;
+				left += pitch;
+				right += pitch;
+			}
+		}
+#endif
 	}
 
 	void RenderScene::StartThreads(size_t numThreads)
@@ -371,13 +398,16 @@ namespace swrenderer
 		viewactive = true;
 		viewport->SetViewport(actor->Level, MainThread(), width, height, MainThread()->Viewport->viewwindow.WidescreenRatio);
 		if (r_modelscene)
-			PolyTriangleDrawer::ResizeBuffers(viewport->RenderTarget);
+		{
+			if (!DepthStencil || DepthStencil->Width() != viewport->RenderTarget->GetWidth() || DepthStencil->Height() != viewport->RenderTarget->GetHeight())
+			{
+				DepthStencil.reset();
+				DepthStencil.reset(new PolyDepthStencil(viewport->RenderTarget->GetWidth(), viewport->RenderTarget->GetHeight()));
+			}
+		}
 
 		// Render:
 		RenderActorView(actor, false, dontmaplines);
-		DrawerWaitCycles.Clock();
-		DrawerThreads::WaitForWorkers();
-		DrawerWaitCycles.Unclock();
 
 		viewport->RenderingToCanvas = false;
 
@@ -403,12 +433,12 @@ namespace swrenderer
 	ADD_STAT(fps)
 	{
 		FString out;
-		out.Format("frame=%04.1f ms  walls=%04.1f ms  planes=%04.1f ms  masked=%04.1f ms  drawers=%04.1f ms",
-			FrameCycles.TimeMS(), WallCycles.TimeMS(), PlaneCycles.TimeMS(), MaskedCycles.TimeMS(), DrawerWaitCycles.TimeMS());
+		out.Format("frame=%04.1f ms  walls=%04.1f ms  planes=%04.1f ms  masked=%04.1f ms",
+			FrameCycles.TimeMS(), WallCycles.TimeMS(), PlaneCycles.TimeMS(), MaskedCycles.TimeMS());
 		return out;
 	}
 
-	static double f_acc, w_acc, p_acc, m_acc, drawer_acc;
+	static double f_acc, w_acc, p_acc, m_acc;
 	static int acc_c;
 
 	ADD_STAT(fps_accumulated)
@@ -417,11 +447,10 @@ namespace swrenderer
 		w_acc += WallCycles.TimeMS();
 		p_acc += PlaneCycles.TimeMS();
 		m_acc += MaskedCycles.TimeMS();
-		drawer_acc += DrawerWaitCycles.TimeMS();
 		acc_c++;
 		FString out;
-		out.Format("frame=%04.1f ms  walls=%04.1f ms  planes=%04.1f ms  masked=%04.1f ms  drawers=%04.1f ms  %d counts",
-			f_acc / acc_c, w_acc / acc_c, p_acc / acc_c, m_acc / acc_c, drawer_acc / acc_c, acc_c);
+		out.Format("frame=%04.1f ms  walls=%04.1f ms  planes=%04.1f ms  masked=%04.1f ms  %d counts",
+			f_acc / acc_c, w_acc / acc_c, p_acc / acc_c, m_acc / acc_c, acc_c);
 		Printf(PRINT_LOG, "%s\n", out.GetChars());
 		return out;
 	}

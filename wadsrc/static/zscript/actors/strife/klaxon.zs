@@ -44,6 +44,7 @@ class CeilingTurret : Actor
 		+NOSPLASHALERT
 		+DONTFALL
 		MinMissileChance 150;
+		Tag "$TAG_CEILINGTURRET";
 		DeathSound "turret/death";
 	}
 	States
@@ -87,7 +88,7 @@ extend class Actor
 			}
 			if (SeeSound != 0)
 			{
-				A_PlaySound (SeeSound, CHAN_VOICE);
+				A_StartSound (SeeSound, CHAN_VOICE);
 			}
 			LastHeard = NULL;
 			threshold = 10;
@@ -118,7 +119,7 @@ extend class Actor
 		}
 		else if (reactiontime > 50)
 		{
-			A_PlaySound ("misc/alarm", CHAN_VOICE);
+			A_StartSound ("misc/alarm", CHAN_VOICE);
 		}
 	}
 

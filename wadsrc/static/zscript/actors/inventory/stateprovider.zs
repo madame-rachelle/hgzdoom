@@ -89,6 +89,7 @@ class StateProvider : Inventory
 		double bangle;
 		double bslope = 0.;
 		int laflags = (flags & FBF_NORANDOMPUFFZ)? LAF_NORANDOMPUFFZ : 0;
+		FTranslatedLineTarget t;
 
 		if ((flags & FBF_USEAMMO) && weapon &&  stateinfo != null && stateinfo.mStateType == STATE_Psprite)
 		{
@@ -107,7 +108,7 @@ class StateProvider : Inventory
 
 		if (weapon != NULL)
 		{
-			A_PlaySound(weapon.AttackSound, CHAN_WEAPON);
+			A_StartSound(weapon.AttackSound, CHAN_WEAPON);
 		}
 
 		if ((numbullets == 1 && !player.refire) || numbullets == 0)
@@ -117,7 +118,7 @@ class StateProvider : Inventory
 			if (!(flags & FBF_NORANDOM))
 				damage *= random[cabullet](1, 3);
 
-			let puff = LineAttack(bangle, range, bslope, damage, 'Hitscan', pufftype, laflags);
+			let puff = LineAttack(bangle, range, bslope, damage, 'Hitscan', pufftype, laflags, t);
 
 			if (missile != null)
 			{
@@ -130,9 +131,17 @@ class StateProvider : Inventory
 					if (!puff)
 					{
 						temp = true;
-						puff = LineAttack(bangle, range, bslope, 0, 'Hitscan', pufftype, laflags | LAF_NOINTERACT);
+						puff = LineAttack(bangle, range, bslope, 0, 'Hitscan', pufftype, laflags | LAF_NOINTERACT, t);
 					}
 					AimBulletMissile(proj, puff, flags, temp, false);
+					if (t.unlinked)
+					{
+						// Arbitary portals will make angle and pitch calculations unreliable.
+						// So use the angle and pitch we passed instead.
+						proj.Angle = bangle;
+						proj.Pitch = bslope;
+						proj.Vel3DFromAngle(proj.Speed, proj.Angle, proj.Pitch);
+					}
 				}
 			}
 		}
@@ -161,7 +170,7 @@ class StateProvider : Inventory
 				if (!(flags & FBF_NORANDOM))
 					damage *= random[cabullet](1, 3);
 
-				let puff = LineAttack(pangle, range, slope, damage, 'Hitscan', pufftype, laflags);
+				let puff = LineAttack(pangle, range, slope, damage, 'Hitscan', pufftype, laflags, t);
 
 				if (missile != null)
 				{
@@ -174,9 +183,17 @@ class StateProvider : Inventory
 						if (!puff)
 						{
 							temp = true;
-							puff = LineAttack(bangle, range, bslope, 0, 'Hitscan', pufftype, laflags | LAF_NOINTERACT);
+							puff = LineAttack(bangle, range, bslope, 0, 'Hitscan', pufftype, laflags | LAF_NOINTERACT, t);
 						}
 						AimBulletMissile(proj, puff, flags, temp, false);
+						if (t.unlinked)
+						{
+							// Arbitary portals will make angle and pitch calculations unreliable.
+							// So use the angle and pitch we passed instead.
+							proj.Angle = bangle;
+							proj.Pitch = bslope;
+							proj.Vel3DFromAngle(proj.Speed, proj.Angle, proj.Pitch);
+						}
 					}
 				}
 			}
@@ -283,7 +300,7 @@ class StateProvider : Inventory
 
 		if (!t.linetarget)
 		{
-			if (MissSound) A_PlaySound(MissSound, CHAN_WEAPON);
+			if (MissSound) A_StartSound(MissSound, CHAN_WEAPON);
 		}
 		else
 		{
@@ -319,8 +336,8 @@ class StateProvider : Inventory
 			}
 			if (weapon != NULL)
 			{
-				if (MeleeSound) A_PlaySound(MeleeSound, CHAN_WEAPON);
-				else			A_PlaySound(weapon.AttackSound, CHAN_WEAPON);
+				if (MeleeSound) A_StartSound(MeleeSound, CHAN_WEAPON);
+				else			A_StartSound(weapon.AttackSound, CHAN_WEAPON);
 			}
 
 			if (!(flags & CPF_NOTURN))
@@ -443,11 +460,11 @@ class CustomInventory : StateProvider
 	//---------------------------------------------------------------------------
 
 	// This is only here, because these functions were originally exported on Inventory, despite only working for weapons, so this is here to satisfy some potential old mods having called it through CustomInventory.
-	deprecated("2.3") action void A_GunFlash(statelabel flash = null, int flags = 0) {}
-	deprecated("2.3") action void A_Lower() {}
-	deprecated("2.3") action void A_Raise() {}
-	deprecated("2.3") action void A_CheckReload() {}
-	deprecated("3.7") action void A_WeaponReady(int flags = 0) {}	// this was somehow missed in 2.3 ...
+	deprecated("2.3", "must be called from Weapon") action void A_GunFlash(statelabel flash = null, int flags = 0) {}
+	deprecated("2.3", "must be called from Weapon") action void A_Lower() {}
+	deprecated("2.3", "must be called from Weapon") action void A_Raise() {}
+	deprecated("2.3", "must be called from Weapon") action void A_CheckReload() {}
+	deprecated("3.7", "must be called from Weapon") action void A_WeaponReady(int flags = 0) {}	// this was somehow missed in 2.3 ...
 	native bool CallStateChain (Actor actor, State state);
 		
 	//===========================================================================

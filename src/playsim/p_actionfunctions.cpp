@@ -50,7 +50,7 @@
 #include "decallib.h"
 #include "p_local.h"
 #include "c_console.h"
-#include "doomerrors.h"
+#include "engineerrors.h"
 #include "a_sharedglobal.h"
 #include "v_font.h"
 #include "doomstat.h"
@@ -715,13 +715,13 @@ DEFINE_ACTION_FUNCTION(AActor, A_PlaySoundEx)
 
 	if (!looping)
 	{
-		S_Sound (self, int(channel) - NAME_Auto, soundid, 1, attenuation);
+		S_Sound (self, channel.GetIndex() - NAME_Auto, 0, soundid, 1, attenuation);
 	}
 	else
 	{
-		if (!S_IsActorPlayingSomething (self, int(channel) - NAME_Auto, soundid))
+		if (!S_IsActorPlayingSomething (self, channel.GetIndex() - NAME_Auto, soundid))
 		{
-			S_Sound (self, (int(channel) - NAME_Auto) | CHAN_LOOP, soundid, 1, attenuation);
+			S_Sound (self, (channel.GetIndex() - NAME_Auto), CHANF_LOOP, soundid, 1, attenuation);
 		}
 	}
 	return 0;
@@ -734,7 +734,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_StopSoundEx)
 
 	if (channel > NAME_Auto && channel <= NAME_SoundSlot7)
 	{
-		S_StopSound (self, int(channel) - NAME_Auto);
+		S_StopSound (self, channel.GetIndex() - NAME_Auto);
 	}
 	return 0;
 }
@@ -791,7 +791,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_BulletAttack)
 
 	DAngle slope = P_AimLineAttack (self, self->Angles.Yaw, MISSILERANGE);
 
-	S_Sound (self, CHAN_WEAPON, self->AttackSound, 1, ATTN_NORM);
+	S_Sound (self, CHAN_WEAPON, 0, self->AttackSound, 1, ATTN_NORM);
 	for (i = self->GetMissileDamage (0, 1); i > 0; --i)
     {
 		DAngle angle = self->Angles.Yaw + pr_cabullet.Random2() * (5.625 / 256.);
@@ -845,6 +845,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_RadiusDamageSelf)
 	int 				actualDamage;
 	double 				actualDistance;
 
+	if (self->target == nullptr) return 0;
 	actualDistance = self->Distance3D(self->target);
 	if (actualDistance < distance)
 	{
@@ -1075,7 +1076,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_CustomMeleeAttack)
 	if (self->CheckMeleeRange ())
 	{
 		if (meleesound)
-			S_Sound (self, CHAN_WEAPON, meleesound, 1, ATTN_NORM);
+			S_Sound (self, CHAN_WEAPON, 0, meleesound, 1, ATTN_NORM);
 		int newdam = P_DamageMobj (self->target, self, self, damage, damagetype);
 		if (bleed)
 			P_TraceBleed (newdam > 0 ? newdam : damage, self->target, self);
@@ -1083,7 +1084,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_CustomMeleeAttack)
 	else
 	{
 		if (misssound)
-			S_Sound (self, CHAN_WEAPON, misssound, 1, ATTN_NORM);
+			S_Sound (self, CHAN_WEAPON, 0, misssound, 1, ATTN_NORM);
 	}
 	return 0;
 }
@@ -1112,7 +1113,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_CustomComboAttack)
 		if (damagetype == NAME_None)
 			damagetype = NAME_Melee;	// Melee is the default type
 		if (meleesound)
-			S_Sound (self, CHAN_WEAPON, meleesound, 1, ATTN_NORM);
+			S_Sound (self, CHAN_WEAPON, 0, meleesound, 1, ATTN_NORM);
 		int newdam = P_DamageMobj (self->target, self, self, damage, damagetype);
 		if (bleed)
 			P_TraceBleed (newdam > 0 ? newdam : damage, self->target, self);
@@ -1302,7 +1303,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_Print)
 		
 		if (fontname != NAME_None)
 		{
-			font = V_GetFont(fontname);
+			font = V_GetFont(fontname.GetChars());
 		}
 		if (time > 0)
 		{
@@ -1334,7 +1335,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_PrintBold)
 	if (text[0] == '$') text = GStrings(&text[1]);
 	if (fontname != NAME_None)
 	{
-		font = V_GetFont(fontname);
+		font = V_GetFont(fontname.GetChars());
 	}
 	if (time > 0)
 	{
@@ -2792,12 +2793,6 @@ DEFINE_ACTION_FUNCTION(AActor, A_MonsterRefire)
 // Set actor's angle (in degrees).
 //
 //===========================================================================
-enum
-{
-	SPF_FORCECLAMP = 1,	// players always clamp
-	SPF_INTERPOLATE = 2,
-};
-
 
 DEFINE_ACTION_FUNCTION(AActor, A_SetAngle)
 {
@@ -2809,7 +2804,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_SetAngle)
 	AActor *ref = COPY_AAPTR(self, ptr);
 	if (ref != NULL)
 	{
-		ref->SetAngle(angle, !!(flags & SPF_INTERPOLATE));
+		ref->SetAngle(angle, flags);
 	}
 	return 0;
 }
@@ -2833,7 +2828,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_SetPitch)
 
 	if (ref != NULL)
 	{
-		ref->SetPitch(pitch, !!(flags & SPF_INTERPOLATE), !!(flags & SPF_FORCECLAMP));
+		ref->SetPitch(pitch, flags);
 	}
 	return 0;
 }
@@ -2856,8 +2851,95 @@ DEFINE_ACTION_FUNCTION(AActor, A_SetRoll)
 
 	if (ref != NULL)
 	{
-		ref->SetRoll(roll, !!(flags & SPF_INTERPOLATE));
+		ref->SetRoll(roll, flags);
 	}
+	return 0;
+}
+
+//===========================================================================
+//
+// A_SetViewAngle
+//
+// Set actor's viewangle (in degrees).
+//
+//===========================================================================
+
+static void SetViewAngleNative(AActor* self, double angle, int flags, int ptr)
+{
+	AActor *ref = COPY_AAPTR(self, ptr);
+	if (ref != nullptr)
+	{
+		ref->SetViewAngle(angle, flags);
+	}
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, A_SetViewAngle, SetViewAngleNative)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_FLOAT(angle);
+	PARAM_INT(flags);
+	PARAM_INT(ptr);
+
+	SetViewAngleNative(self, angle, flags, ptr);
+
+	return 0;
+}
+
+//===========================================================================
+//
+// A_SetViewPitch
+//
+// Set actor's viewpitch (in degrees).
+//
+//===========================================================================
+
+static void SetViewPitchNative(AActor* self, double pitch, int flags, int ptr)
+{
+	AActor *ref = COPY_AAPTR(self, ptr);
+	if (ref != nullptr)
+	{
+		ref->SetViewPitch(pitch, flags);
+	}
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, A_SetViewPitch, SetViewPitchNative)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_FLOAT(pitch);
+	PARAM_INT(flags);
+	PARAM_INT(ptr);
+
+	SetViewPitchNative(self, pitch, flags, ptr);
+
+	return 0;
+}
+
+//===========================================================================
+//
+// [MC] A_SetViewRoll
+//
+// Set actor's viewroll (in degrees).
+//
+//===========================================================================
+
+static void SetViewRollNative(AActor* self, double roll, int flags, int ptr)
+{
+	AActor *ref = COPY_AAPTR(self, ptr);
+	if (ref != nullptr)
+	{
+		ref->SetViewRoll(roll, flags);
+	}
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, A_SetViewRoll, SetViewRollNative)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_FLOAT(roll);
+	PARAM_INT(flags);
+	PARAM_INT(ptr);
+
+	SetViewRollNative(self, roll, flags, ptr);
+
 	return 0;
 }
 
@@ -3419,7 +3501,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_WolfAttack)
 	}
 
 	// And finally, let's play the sound
-	S_Sound (self, CHAN_WEAPON, sound, 1, ATTN_NORM);
+	S_Sound (self, CHAN_WEAPON, 0, sound, 1, ATTN_NORM);
 	return 0;
 }
 
@@ -3810,7 +3892,7 @@ static void DoDamage(AActor *dmgtarget, AActor *inflictor, AActor *source, int a
 	
 		if (amount > 0)
 		{ //Should wind up passing them through just fine.
-			if (flags & DMSS_INFLICTORDMGTYPE)
+			if (inflictor && (flags & DMSS_INFLICTORDMGTYPE))
 				DamageType = inflictor->DamageType;
 
 			P_DamageMobj(dmgtarget, inflictor, source, amount, DamageType, dmgFlags);
@@ -4791,19 +4873,19 @@ DEFINE_ACTION_FUNCTION(AActor, A_SetVisibleRotation)
 		
 	if (!(flags & VRF_NOANGLESTART))
 	{
-		mobj->VisibleStartAngle = anglestart;
+		mobj->VisibleStartAngle = anglestart.Degrees;
 	}
 	if (!(flags & VRF_NOANGLEEND))
 	{
-		mobj->VisibleEndAngle = angleend;
+		mobj->VisibleEndAngle = angleend.Degrees;
 	}
 	if (!(flags & VRF_NOPITCHSTART))
 	{
-		mobj->VisibleStartPitch = pitchstart;
+		mobj->VisibleStartPitch = pitchstart.Degrees;
 	}
 	if (!(flags & VRF_NOPITCHEND))
 	{
-		mobj->VisibleEndPitch = pitchend;
+		mobj->VisibleEndPitch = pitchend.Degrees;
 	}
 
 	ACTION_RETURN_BOOL(true);
@@ -4838,7 +4920,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_CheckTerrain)
 
 	if (self->Z() == sec->floorplane.ZatPoint(self) && sec->PortalBlocksMovement(sector_t::floor))
 	{
-		if (sec->special == Damage_InstantDeath)
+		if (sec->damageamount >= TELEFRAG_DAMAGE)
 		{
 			P_DamageMobj(self, NULL, NULL, 999, NAME_InstantDeath);
 		}
@@ -4917,7 +4999,13 @@ DEFINE_ACTION_FUNCTION(AActor, A_SprayDecal)
 	PARAM_SELF_PROLOGUE(AActor);
 	PARAM_STRING(name);
 	PARAM_FLOAT(dist);
-	SprayDecal(self, name, dist);
+	PARAM_FLOAT(offset_x);
+	PARAM_FLOAT(offset_y);
+	PARAM_FLOAT(offset_z);
+	PARAM_FLOAT(direction_x);
+	PARAM_FLOAT(direction_y);
+	PARAM_FLOAT(direction_z);
+	SprayDecal(self, name, dist, DVector3(offset_x, offset_y, offset_z), DVector3(direction_x, direction_y, direction_z) );
 	return 0;
 }
 
