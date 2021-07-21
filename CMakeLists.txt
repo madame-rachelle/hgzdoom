@@ -402,7 +402,6 @@ add_subdirectory( libraries/lzma )
 add_subdirectory( tools )
 add_subdirectory( libraries/gdtoa )
 add_subdirectory( wadsrc )
-add_subdirectory( wadsrc_widescreen )
 add_subdirectory( src )
 
 if( NOT CMAKE_CROSSCOMPILING )
