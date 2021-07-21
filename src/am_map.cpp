@@ -278,7 +278,7 @@ CVAR (Color, am_tswallcolor,		0x888888,	CVAR_ARCHIVE);
 CVAR (Color, am_fdwallcolor,		0x504a41,	CVAR_ARCHIVE);
 CVAR (Color, am_cdwallcolor,		0x4c3820,	CVAR_ARCHIVE);
 CVAR (Color, am_efwallcolor,		0x665555,	CVAR_ARCHIVE);
-CVAR (Color, am_thingcolor,			0xfcfcfc,	CVAR_ARCHIVE);
+CVAR (Color, am_thingcolor,			0x000040,	CVAR_ARCHIVE);
 CVAR (Color, am_gridcolor,			0x8b5a2b,	CVAR_ARCHIVE);
 CVAR (Color, am_xhaircolor,			0x808080,	CVAR_ARCHIVE);
 CVAR (Color, am_notseencolor,		0x6c6c6c,	CVAR_ARCHIVE);
