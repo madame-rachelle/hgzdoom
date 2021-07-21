@@ -287,11 +287,11 @@ CVAR (Color, am_intralevelcolor,	0x0000ff,	CVAR_ARCHIVE);
 CVAR (Color, am_interlevelcolor,	0xff0000,	CVAR_ARCHIVE);
 CVAR (Color, am_secretsectorcolor,	0xf37317,	CVAR_ARCHIVE);
 CVAR (Color, am_unexploredsecretcolor,	0x0fff8f,	CVAR_ARCHIVE);
-CVAR (Color, am_thingcolor_friend,	0xfcfcfc,	CVAR_ARCHIVE);
-CVAR (Color, am_thingcolor_monster,	0xfcfcfc,	CVAR_ARCHIVE);
-CVAR (Color, am_thingcolor_ncmonster,	0xfcfcfc,	CVAR_ARCHIVE);
-CVAR (Color, am_thingcolor_item,	0xfcfcfc,	CVAR_ARCHIVE);
-CVAR (Color, am_thingcolor_citem,	0xfcfcfc,	CVAR_ARCHIVE);
+CVAR (Color, am_thingcolor_friend,	0x000040,	CVAR_ARCHIVE);
+CVAR (Color, am_thingcolor_monster,	0x000040,	CVAR_ARCHIVE);
+CVAR (Color, am_thingcolor_ncmonster,	0x000040,	CVAR_ARCHIVE);
+CVAR (Color, am_thingcolor_item,	0x000040,	CVAR_ARCHIVE);
+CVAR (Color, am_thingcolor_citem,	0x000040,	CVAR_ARCHIVE);
 CVAR (Color, am_portalcolor,		0x404040,	CVAR_ARCHIVE);
 
 CVAR (Color, am_ovyourcolor,		0xffffff,	CVAR_ARCHIVE);
