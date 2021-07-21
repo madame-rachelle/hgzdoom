@@ -74,7 +74,7 @@ BEGIN
     "            VALUE ""InternalName"", ""Hedon""\r\n"
     "            VALUE ""LegalCopyright"", ""Copyright © 1993-1996 id Software, 1998-2010 Randy Heit, 2002-2010 Christoph Oelckers, et al.""\r\n"
     "            VALUE ""LegalTrademarks"", ""DoomR is a Registered Trademark of id Software, Inc.""\r\n"
-    "            VALUE ""OriginalFilename"", ""hedon.exe""\r\n"
+    "            VALUE ""OriginalFilename"", ""Hedon.exe""\r\n"
     "            VALUE ""ProductName"", ""Hedon""\r\n"
     "            VALUE ""ProductVersion"", GIT_VERSION\r\n"
     "        END\r\n"
@@ -206,45 +206,27 @@ IDD_IWADDIALOG DIALOGEX 0, 0, 225, 248
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Welcome"
-#ifndef __MINGW32__
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
-FONT 8, "MS Shell Dlg"
-{
-   CONTROL 101, IDC_STATIC, STATIC, SS_ICON | WS_CHILD | WS_VISIBLE, 7, 7, 21, 20
-   CONTROL "Welcome to Hedon!", IDC_STATIC, STATIC, SS_LEFT | WS_CHILD | WS_VISIBLE | WS_GROUP, 42, 8, 180, 8
-   CONTROL "<Version info>", IDC_WELCOME_VERSION, STATIC, SS_LEFT | WS_CHILD | WS_VISIBLE | WS_GROUP, 42, 18, 180, 8
-   CONTROL "IWAD selection", IDC_STATIC, BUTTON, BS_GROUPBOX | WS_CHILD | WS_VISIBLE, 8, 32, 208, 117
-   CONTROL "Select which game file (IWAD) to run.", IDC_STATIC, STATIC, SS_LEFT | WS_CHILD | WS_VISIBLE | WS_GROUP, 12, 44, 190, 8
-   CONTROL "", IDC_IWADLIST, LISTBOX, LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | WS_TABSTOP, 12, 56, 200, 87
-   CONTROL "Video settings", IDC_STATIC, BUTTON, BS_GROUPBOX | WS_CHILD | WS_VISIBLE, 8, 155, 109, 52
-   CONTROL "Fullscreen", IDC_WELCOME_FULLSCREEN, BUTTON, BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 12, 170, 48, 10
-   CONTROL "Resource settings", IDC_STATIC, BUTTON, BS_GROUPBOX | WS_CHILD | WS_VISIBLE, 123, 155, 95, 52
-   CONTROL "Disable autoload", IDC_WELCOME_NOAUTOLOAD, BUTTON, BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 130, 170, 65, 10
-   CONTROL "Load lights", IDC_WELCOME_LIGHTS, BUTTON, BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 130, 180, 51, 10
-   CONTROL "Load brightmaps", IDC_WELCOME_BRIGHTMAPS, BUTTON, BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 130, 190, 65, 10
-   CONTROL "Don't ask me this again", IDC_DONTASKIWAD, BUTTON, BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 73, 211, 87, 10
-   CONTROL "Play Hedon", IDOK, BUTTON, BS_DEFPUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 8, 228, 90, 14
-   CONTROL "Exit", IDCANCEL, BUTTON, BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 166, 228, 50, 14
-}
-#else
-// [SP] Upstreamed from Zandronum
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    ICON            IDI_ICON1,IDC_STATIC,7,7,21,20
-    LTEXT           "Welcome to Hedon!",IDC_STATIC,42,8,180,8
-    LTEXT           "<Version info>",IDC_WELCOME_VERSION,42,18,180,8
-    GROUPBOX        "IWAD selection",IDC_STATIC,8,32,208,102
+    ICON            IDI_ICON1,IDC_STATIC,7,7,20,20
+    LTEXT           "Welcome to Hedon!",IDC_STATIC,43,8,180,8
+    LTEXT           "<Version info>",IDC_WELCOME_VERSION,43,18,180,8
+    GROUPBOX        "IWAD selection",IDC_STATIC,8,32,208,117
     LTEXT           "Select which game file (IWAD) to run.",IDC_STATIC,12,44,190,8
-    LISTBOX         IDC_IWADLIST,12,56,200,72,LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "Video settings",IDC_STATIC,8,138,208,28
-    CONTROL         "Fullscreen",IDC_WELCOME_FULLSCREEN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,124,150,48,10
-    CONTROL         "Disable autoload",IDC_WELCOME_NOAUTOLOAD,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,148,39,65,10
-    CONTROL         "Lights.pk3",IDC_WELCOME_LIGHTS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,46,182,51,10
-    CONTROL         "Brightmaps.pk3",IDC_WELCOME_BRIGHTMAPS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,111,182,65,10
-    CONTROL         "Don't ask me this again",IDC_DONTASKIWAD,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,73,201,87,10
-    DEFPUSHBUTTON   "Play Hedon",IDOK,8,228,90,14
-    PUSHBUTTON      "Exit",IDCANCEL,166,228,50,14
-END
+    LISTBOX         IDC_IWADLIST,12,56,200,87,LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Video settings",IDC_STATIC,8,155,68,65
+    CONTROL         "&Fullscreen",IDC_WELCOME_FULLSCREEN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,206,48,10
+    GROUPBOX        "Extra Graphics",IDC_STATIC,159,155,59,64
+    CONTROL         "Disable &autoload",IDC_WELCOME_NOAUTOLOAD,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,86,166,65,10
+    CONTROL         "&Lights",IDC_WELCOME_LIGHTS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,164,165,43,10
+    CONTROL         "&Brightmaps",IDC_WELCOME_BRIGHTMAPS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,164,177,51,10
+    CONTROL         "&Widescreen",IDC_WELCOME_WIDESCREEN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,164,188,48,12
+    CONTROL         "&Don't ask me again",IDC_DONTASKIWAD,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,83,190,72,10
+    DEFPUSHBUTTON   "&Play Game!",IDOK,8,227,90,14
+    PUSHBUTTON      "E&xit",IDCANCEL,166,227,50,14
+    CONTROL         "&OpenGL",IDC_WELCOME_VULKAN1,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,13,167,41,10
+#ifdef HAVE_VULKAN
+    CONTROL         "&Vulkan",IDC_WELCOME_VULKAN2,"Button",BS_AUTORADIOBUTTON,13,177,37,10
 #endif
     CONTROL         "&SoftPoly",IDC_WELCOME_VULKAN3,"Button",BS_AUTORADIOBUTTON,13,188,43,10
 END
@@ -367,7 +349,7 @@ BEGIN
             VALUE "InternalName", "Hedon"
             VALUE "LegalCopyright", "Copyright © 1993-1996 id Software, 1998-2010 Randy Heit, 2002-2010 Christoph Oelckers, et al."
             VALUE "LegalTrademarks", "Doom® is a Registered Trademark of id Software, Inc."
-            VALUE "OriginalFilename", "hedon.exe"
+            VALUE "OriginalFilename", "Hedon.exe"
             VALUE "ProductName", "Hedon"
             VALUE "ProductVersion", GIT_DESCRIPTION
         END
