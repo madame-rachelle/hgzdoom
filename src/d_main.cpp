@@ -3734,7 +3734,6 @@ void D_Cleanup()
 	FreeSBarInfoScript();
 	
 	// clean up game state
-	ST_Clear();
 	D_ErrorCleanup ();
 	P_Shutdown();
 	
