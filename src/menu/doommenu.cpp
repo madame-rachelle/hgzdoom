@@ -71,7 +71,7 @@ EXTERN_CVAR(Bool, saveloadconfirmation) // [mxd]
 EXTERN_CVAR(Bool, quicksaverotation)
 EXTERN_CVAR(Bool, show_messages)
 
-CVAR(Bool, m_simpleoptions, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
+CVAR(Bool, m_simpleoptions, false, CVAR_NOSET)
 
 typedef void(*hfunc)();
 DMenu* CreateMessageBoxMenu(DMenu* parent, const char* message, int messagemode, bool playsound, FName action = NAME_None, hfunc handler = nullptr);

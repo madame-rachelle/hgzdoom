@@ -179,12 +179,12 @@ FILE *Logfile = NULL;
 
 FIntCVar msglevel ("msg", 0, CVAR_ARCHIVE);
 
-CUSTOM_CVAR (Int, msg0color, CR_UNTRANSLATED, CVAR_ARCHIVE)
+CUSTOM_CVAR (Int, msg0color, CR_ORANGE, CVAR_ARCHIVE)
 {
 	setmsgcolor (0, self);
 }
 
-CUSTOM_CVAR (Int, msg1color, CR_GOLD, CVAR_ARCHIVE)
+CUSTOM_CVAR (Int, msg1color, CR_RED, CVAR_ARCHIVE)
 {
 	setmsgcolor (1, self);
 }
@@ -204,7 +204,7 @@ CUSTOM_CVAR (Int, msg4color, CR_GREEN, CVAR_ARCHIVE)
 	setmsgcolor (4, self);
 }
 
-CUSTOM_CVAR (Int, msgmidcolor, CR_UNTRANSLATED, CVAR_ARCHIVE)
+CUSTOM_CVAR (Int, msgmidcolor, CR_GOLD, CVAR_ARCHIVE)
 {
 	setmsgcolor (PRINTLEVELS, self);
 }

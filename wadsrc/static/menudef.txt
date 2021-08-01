@@ -378,7 +378,6 @@ OptionMenu "OptionsMenu" protected
 	Submenu "$OPTMNU_VIDEO",			"VideoModeMenu"
 	StaticText " "
 	Submenu "$OS_TITLE", "os_Menu"
-	Option "$OPTMNU_SIMPLEON",			"m_simpleoptions", "OnOff"
 	
 	StaticText " "
 	SafeCommand	"$OPTMNU_DEFAULTS",		"reset2defaults"
@@ -521,9 +520,7 @@ OptionMenu "CustomizeControls" protected
 	Submenu    "$CNTRLMNU_INVENTORY"   , "InventoryControlsMenu"
 	Submenu    "$MAPCNTRLMNU_CONTROLS" , "MapControlsMenu"
 	Submenu    "$CNTRLMNU_OTHER"       , "OtherControlsMenu"
-	Submenu    "$MNU_MULTIPLAYER"        , "ChatControlsMenu"
 	StaticText ""
-	Option "$CNTRLMNU_LAYOUT",			"cl_defaultconfiguration", "Layouts"
 	SafeCommand "$OPTMNU_DEFAULTS",		"resetb2defaults"
 }
 
@@ -946,12 +943,7 @@ OptionMenu "VideoOptions" protected
 	ColorPicker "$DSPLYMNU_CUSTOMINVERTC2",		"cl_custominvulmapcolor2"
 	Option "$DSPLYMNU_WIPETYPE",				"wipetype", "Wipes"
 	Option "$DSPLYMNU_DRAWFUZZ",				"r_drawfuzz", "Fuzziness"
-	Option "$DSPLYMNU_OLDTRANS",				"r_vanillatrans", "VanillaTrans"
-	Slider "$DSPLYMNU_TRANSSOUL",				"transsouls", 0.25, 1.0, 0.05, 2
 	Option "$DSPLYMNU_FAKECONTRAST",			"r_fakecontrast", "Contrast"
-	Option "$DSPLYMNU_ROCKETTRAILS",			"cl_rockettrails", "RocketTrailTypes"
-	Option "$DSPLYMNU_BLOODTYPE",				"cl_bloodtype", "BloodTypes"
-	Option "$DSPLYMNU_PUFFTYPE",				"cl_pufftype", "PuffTypes"
 	Slider "$DSPLYMNU_MAXPARTICLES",			"r_maxparticles", 100, 10000, 100, 0
 	Slider "$DSPLYMNU_MAXDECALS",				"cl_maxdecals", 0, 10000, 100, 0
 	Option "$DSPLYMNU_PLAYERSPRITES",			"r_drawplayersprites", "OnOff"
@@ -1036,7 +1028,6 @@ OptionMenu "HUDOptions" protected
 	Submenu "$HUDMNU_SCALEOPT",				"ScalingOptions"
 	Submenu "$HUDMNU_MESSAGE", 				"MessageOptions"
 	Submenu "$HUDMNU_FLASH", 				"FlashOptions"
-	Submenu "$HUDMNU_FONTOPTIONS",			"FontOptions"
 	StaticText " "
 	Option "$HUDMNU_CROSSHAIRON",			"crosshairon", "OnOff"
 	Option "$HUDMNU_CROSSHAIR",				"crosshair", "Crosshairs"
@@ -1045,10 +1036,6 @@ OptionMenu "HUDOptions" protected
 	ColorPicker "$HUDMNU_CROSSHAIRCOLOR", 	"crosshaircolor"
 	Option "$HUDMNU_CROSSHAIRHEALTH",		"crosshairhealth", "CrosshairHealthTypes"
 	Slider "$HUDMNU_CROSSHAIRSCALE",		"crosshairscale", 0.0, 2.0, 0.05, 2
-	StaticText " "
-	Option "$HUDMNU_NAMETAGS",				"displaynametags", "DisplayTagsTypes"
-	Option "$HUDMNU_NAMETAGCOLOR",			"nametagcolor", "TextColors", "displaynametags"
-	Option "$HUDMNU_OLDOUCH",				"st_oldouch", "OnOff"
 	StaticText " "
 	Slider "$DSPLYMNU_MOVEBOB",				"movebob", 0, 1.0, 0.05, 2
 	Slider "$DSPLYMNU_STILLBOB",			"stillbob", 0, 1.0, 0.05, 2
@@ -1063,11 +1050,6 @@ OptionMenu "HUDOptions" protected
 OptionMenu "FlashOptions" protected
 {
 	Title "$HUDMNU_FLASH"
-	Option "$HUDMNU_HEXENFLASHES",			"pf_hexenweaps", "ZDoomHexen"
-	Option "$HUDMNU_POISONFLASHES",			"pf_poison", "ZDoomHexen"
-	Option "$HUDMNU_ICEFLASHES",			"pf_ice", "ZDoomHexen"
-	Option "$HUDMNU_HAZARDFLASHES",			"pf_hazard", "ZDoomStrife"
-	StaticText " "
 	Slider "$DSPLYMNU_BLOODFADE",				"blood_fade_scalar", 0.0, 1.0, 0.05, 2
 	Slider "$DSPLYMNU_PICKUPFADE",				"pickup_fade_scalar", 0.0, 1.0, 0.05, 2
 	Slider "$DSPLYMNU_WATERFADE",				"underwater_fade_scalar", 0.0, 1.0, 0.05, 2
@@ -1237,11 +1219,6 @@ OptionMenu "MiscOptions" protected
 	StaticText " "
 	Option "$MISCMNU_QUICKEXIT",				"m_quickexit", "OnOff"
 
-	IfOption(Windows)
-	{
-		StaticText " "
-		Option	"$DSPLYMNU_SHOWENDOOM",			"showendoom", "Endoom"
-	}
 	StaticText " "
 	Option "$MISCMNU_CLEANMENU",				"m_cleanscale", "OffOn"
 	Option "$MISCMNU_CLEANSTAT",				"wi_cleantextscale", "OnOff"
@@ -1520,10 +1497,8 @@ OptionMenu MessageOptions protected
 	Option "$MSGMNU_SHOWOBITUARIES",			"show_obituaries", "OnOff"
 	Option "$MSGMNU_SHOWSECRETS",				"cl_showsecretmessage", "OnOff"
 	Option "$MSGMNU_MESSAGELEVEL", 				"msg", "MessageLevels"
-	Option "$MSGMNU_DEVELOPER", 				"developer", "DevMessageLevels"
 	Option "$MSGMNU_CENTERMESSAGES",			"con_centernotify", "OnOff"
 	Option "$MSGMNU_PULSEMESSAGES",				"con_pulsetext", "OnOff"
-	Option "$MSGMNU_SUBTITLES",					"inter_subtitles", "OnOff"
 	StaticText " "
 	StaticText "$MSGMNU_MESSAGECOLORS", 1
 	StaticText " "

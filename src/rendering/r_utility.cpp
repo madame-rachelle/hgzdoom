@@ -105,7 +105,7 @@ CUSTOM_CVAR(Float, r_quakeintensity, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 	else if (self > 1.f) self = 1.f;
 }
 
-CUSTOM_CVARD(Int, r_actorspriteshadow, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG, "render actor sprite shadows. 0 = off, 1 = default, 2 = always on")
+CUSTOM_CVARD(Int, r_actorspriteshadow, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG, "render actor sprite shadows. 0 = off, 1 = default, 2 = always on")
 {
 	if (self < 0)
 		self = 0;
