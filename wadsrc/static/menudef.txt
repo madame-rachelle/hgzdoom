@@ -2628,6 +2628,7 @@ OptionMenu "VR3DMenu" protected
 OptionMenu "PostProcessMenu" protected
 {
 	Title "$GLMNU_POSTPROCESS"
+	StaticText "Turning these options on is not recommended\n"
 	Option "$GLPREFMNU_BLOOM",		 			gl_bloom,						"OnOff"
 	Option "$GLPREFMNU_LENS",		 			gl_lens,						"OnOff"
 	Option "$GLPREFMNU_SSAO",		 			gl_ssao,						"SSAOModes"
