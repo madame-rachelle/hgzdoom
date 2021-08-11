@@ -52,7 +52,7 @@
 
 CVAR(Float, underwater_fade_scalar, 0.7f, CVAR_ARCHIVE) // [Nash] user-settable underwater blend intensity
 
-CUSTOM_CVAR(Int, uiscale, 1, CVAR_ARCHIVE | CVAR_NOINITCALL)
+CUSTOM_CVAR(Int, uiscale, 1, CVAR_ARCHIVE | CVAR_NOINITCALL | CVAR_MOD)
 {
 	if (self < 0)
 	{
