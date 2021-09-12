@@ -98,6 +98,7 @@ bool IShadowMap::PerformUpdate()
 	LightsProcessed = 0;
 	LightsShadowmapped = 0;
 
+	// CollectLights will be null if the calling code decides that shadowmaps are not needed.
 	if (CollectLights != nullptr)
 	{
 		UpdateCycles.Clock();

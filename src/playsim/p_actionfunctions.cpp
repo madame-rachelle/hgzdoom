@@ -1073,7 +1073,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_CustomMeleeAttack)
 		return 0;
 				
 	A_FaceTarget (self);
-	if (self->CheckMeleeRange ())
+	if (P_CheckMeleeRange(self))
 	{
 		if (meleesound)
 			S_Sound (self, CHAN_WEAPON, 0, meleesound, 1, ATTN_NORM);
@@ -1108,7 +1108,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_CustomComboAttack)
 		return 0;
 				
 	A_FaceTarget (self);
-	if (self->CheckMeleeRange())
+	if (P_CheckMeleeRange(self))
 	{
 		if (damagetype == NAME_None)
 			damagetype = NAME_Melee;	// Melee is the default type
@@ -5005,7 +5005,9 @@ DEFINE_ACTION_FUNCTION(AActor, A_SprayDecal)
 	PARAM_FLOAT(direction_x);
 	PARAM_FLOAT(direction_y);
 	PARAM_FLOAT(direction_z);
-	SprayDecal(self, name, dist, DVector3(offset_x, offset_y, offset_z), DVector3(direction_x, direction_y, direction_z) );
+	PARAM_BOOL(useBloodColor);
+	PARAM_COLOR(decalColor);
+	SprayDecal(self, name, dist, DVector3(offset_x, offset_y, offset_z), DVector3(direction_x, direction_y, direction_z), useBloodColor, decalColor);
 	return 0;
 }
 
