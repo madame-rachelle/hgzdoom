@@ -12,6 +12,7 @@ class HateTarget : Actor
 		+NOGRAVITY
 		+NOBLOOD
 		+DONTSPLASH
+		+NOTONAUTOMAP
 		Mass 0x7fffffff;
 	}
 	States

@@ -16,6 +16,7 @@ class SecurityCamera : Actor
 		+NOBLOCKMAP 
 		+NOGRAVITY
 		+DONTSPLASH
+		+NOTONAUTOMAP
 		RenderStyle "None";
 		CameraHeight 0;
 	}

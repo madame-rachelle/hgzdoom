@@ -199,6 +199,7 @@ class InvisibleBridge : Actor
 		+NOGRAVITY
 		+NOLIFTDROP
 		+ACTLIKEBRIDGE
+		+NOTONAUTOMAP
 	}
 	States
 	{
