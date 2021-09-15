@@ -5008,7 +5008,10 @@ int DLevelScript::SetUserCVar(int playernum, const char *cvarname, int value, bo
 	// Only mod-created cvars may be set.
 	if (cvar_p == NULL || (cvar = *cvar_p) == NULL || (cvar->GetFlags() & CVAR_IGNORE) || !(cvar->GetFlags() & CVAR_MOD))
 	{
-		return 0;
+		if (strcmp(cvarname, "uiscale") && strcmp(cvarname, "vid_gamma")) // these two are explicitly allowed for Hedon.
+		{
+			return 0;
+		}
 	}
 	DoSetCVar(cvar, value, is_string);
 
@@ -5031,9 +5034,12 @@ int DLevelScript::SetCVar(AActor *activator, const char *cvarname, int value, bo
 {
 	FBaseCVar *cvar = FindCVar(cvarname, NULL);
 	// Only mod-created cvars may be set.
-	if (cvar == NULL || (cvar->GetFlags() & (CVAR_IGNORE|CVAR_NOSET)) || !(cvar->GetFlags() & CVAR_MOD))
+	if (cvar == NULL || (cvar->GetFlags() & (CVAR_IGNORE | CVAR_NOSET)) || !(cvar->GetFlags() & CVAR_MOD))
 	{
-		return 0;
+		if (strcmp(cvarname, "uiscale") && strcmp(cvarname, "vid_gamma")) // these two are explicitly allowed for Hedon.
+		{
+			return 0;
+		}
 	}
 	// For userinfo cvars, redirect to SetUserCVar
 	if (cvar->GetFlags() & CVAR_USERINFO)
