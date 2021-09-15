@@ -1565,7 +1565,7 @@ void ParseCVarInfo()
 			FString cvarname;
 			char *cvardefault = NULL;
 			ECVarType cvartype = CVAR_Dummy;
-			int cvarflags = CVAR_MOD|CVAR_ARCHIVE;
+			int cvarflags = CVAR_DYNAMIC|CVAR_MOD|CVAR_ARCHIVE;
 			FBaseCVar *cvar;
 
 			// Check for flag tokens.
@@ -3670,7 +3670,7 @@ void D_Cleanup()
 	new (&gameinfo) gameinfo_t;		// Reset gameinfo
 	S_Shutdown();					// free all channels and delete playlist
 	C_ClearAliases();				// CCMDs won't be reinitialized so these need to be deleted here
-	DestroyCVarsFlagged(CVAR_MOD);	// Delete any cvar left by mods
+	DestroyCVarsFlagged(CVAR_DYNAMIC);	// Delete any cvar left by mods
 	DeinitMenus();
 	savegameManager.ClearSaveGames();
 	LightDefaults.DeleteAndClear();			// this can leak heap memory if it isn't cleared.
